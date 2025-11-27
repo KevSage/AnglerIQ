@@ -1,13 +1,13 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
-import Link from "next/link";
+import React from "react";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "SAGE Fishing Intelligence",
-  description: "AI bass fishing assistant powered by the SAGE engine",
+  title: "SAGE",
+  description: "Seasonal Adaptive Guidance Engine for bass fishing",
 };
 
 export default function RootLayout({
@@ -16,21 +16,27 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en-US">
       <body className={`${inter.className} bg-slate-950 text-slate-50`}>
         <nav className="flex gap-6 px-6 py-3 border-b border-slate-800 bg-slate-900">
           <span className="font-semibold tracking-wide text-sky-400">SAGE</span>
-          <Link href="/pattern" className="hover:text-sky-300">
-            Pattern Assistant
-          </Link>
-          <Link href="/chat" className="hover:text-sky-300">
-            Chat Coach
-          </Link>
-          <Link href="/sonar" className="hover:text-sky-300">
-            Sonar Analysis
-          </Link>
+          <a href="/" className="text-sm text-slate-300 hover:text-sky-300">
+            Home
+          </a>
+          <a
+            href="/pattern"
+            className="text-sm text-slate-300 hover:text-sky-300"
+          >
+            Basic Pattern
+          </a>
+          <a
+            href="/pattern/pro"
+            className="text-sm text-slate-300 hover:text-sky-300"
+          >
+            Pro Pattern
+          </a>
         </nav>
-        <div>{children}</div>
+        {children}
       </body>
     </html>
   );
