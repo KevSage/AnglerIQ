@@ -1,19 +1,5 @@
 # app/engines/pattern/engine.py
 
-"""
-Thin wrapper around the pattern logic functions.
-
-Right now this is just a convenience layer so that routes (and later,
-other engines or the assistant) can work with a single PatternEngine
-object instead of importing functions directly.
-
-Behavior is intentionally identical to calling the functions in logic.py.
-We can gradually evolve this into more structured "basic / pro / elite"
-builders without changing the underlying logic.
-"""
-
-from typing import Optional, List
-
 from .logic import (
     classify_phase,
     recommend_lures,
@@ -25,48 +11,82 @@ from .logic import (
 
 class PatternEngine:
     """
-    Thin OO wrapper over the existing pattern logic.
+    Thin wrapper around the pattern logic functions.
 
-    For now, this mostly forwards to the underlying functions. Later,
-    we'll add richer helpers like `build_basic_summary(...)`,
-    `build_pro_summary(...)`, etc.
+    For now this just centralizes the logic that your /pattern/basic
+    and /pattern/pro routes already use. We are NOT changing behavior,
+    just moving it behind a class so we can evolve tiers later.
     """
 
-    def classify_phase(self, temp_f: float, month: int) -> str:
-        return classify_phase(temp_f, month)
-
-    def recommend_lures(self, phase: str) -> List[str]:
-        return recommend_lures(phase)
-
-    def infer_depth_zone(self, phase: str, depth_ft: Optional[float]) -> str:
-        return infer_depth_zone(phase, depth_ft)
-
-    def adjust_lures_for_clarity_and_bottom(
+    def build_basic_summary(
         self,
-        base_lures: List[str],
-        clarity: str,
-        bottom_composition: Optional[str],
-        wind_speed: float,
-    ) -> List[str]:
-        return adjust_lures_for_clarity_and_bottom(
-            base_lures=base_lures,
-            clarity=clarity,
-            bottom_composition=bottom_composition,
-            wind_speed=wind_speed,
-        )
-
-    def build_targets_and_tips(
-        self,
-        phase: str,
-        depth_zone: str,
+        *,
+        temp_f: float,
+        month: int,
         clarity: str,
         wind_speed: float,
-        bottom_composition: Optional[str],
+        bottom_composition: str | None,
     ) -> dict:
-        return build_targets_and_tips(
-            phase=phase,
-            depth_zone=depth_zone,
-            clarity=clarity,
-            wind_speed=wind_speed,
-            bottom_composition=bottom_composition,
+        """
+        Copy the existing 'basic' pattern dict construction here.
+
+        IMPORTANT: keep the returned keys EXACTLY the same as your current
+        /pattern/basic route so tests keep passing.
+        """
+        phase = classify_phase(temp_f, month)
+        depth_zone = infer_depth_zone(phase, None)
+
+        # 👉 Replace this return with whatever your current basic route returns.
+        return {
+            "phase": phase,
+            "depth_zone": depth_zone,
+            "clarity": clarity,
+            "wind_speed": wind_speed,
+            "bottom_composition": bottom_composition,
+        }
+
+    def build_pro_summary(
+        self,
+        *,
+        temp_f: float,
+        month: int,
+        clarity: str,
+        wind_speed: float,
+        bottom_composition: str | None,
+        depth_ft: float | None,
+        sky_condition: str | None,
+    ) -> dict:
+        """
+        Copy the existing 'pro' pattern dict construction here.
+
+        Again: keep returned keys IDENTICAL to what your /pattern/pro
+        route currently sends to the frontend.
+        """
+        phase = classify_phase(temp_f, month)
+        depth_zone = infer_depth_zone(phase, depth_ft)
+
+        base_lures = recommend_lures(phase)
+        lures = adjust_lures_for_clarity_and_bottom(
+            base_lures,
+            clarity,
+            bottom_composition,
+            wind_speed,
         )
+        targets_and_tips = build_targets_and_tips(
+            phase,
+            depth_zone,
+            clarity,
+            wind_speed,
+            bottom_composition,
+        )
+
+        # 👉 Replace/extend this dict with whatever your pro route currently returns.
+        return {
+            "phase": phase,
+            "depth_zone": depth_zone,
+            "clarity": clarity,
+            "wind_speed": wind_speed,
+            "bottom_composition": bottom_composition,
+            "lures": lures,
+            **targets_and_tips,
+        }
