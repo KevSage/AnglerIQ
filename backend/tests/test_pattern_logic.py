@@ -1,6 +1,6 @@
 # tests/test_pattern_logic.py
 
-from app.pattern_logic import (
+from app.engines.pattern.logic import (
     classify_phase,
     recommend_lures,
     infer_depth_zone,
