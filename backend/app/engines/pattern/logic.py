@@ -1005,6 +1005,272 @@ def adjust_targets_for_lake_type(
         "strategy_tips": tips,
     }
 
+# ---------------------------------------------------------------------------
+# Narrative helpers (pattern card, analysis, gear checklist, backup plans)
+# ---------------------------------------------------------------------------
+
+def build_pattern_card(summary: Dict[str, Any]) -> str:
+    """
+    Short, on-the-water summary of the pattern.
+    """
+    phase = summary.get("phase", "").title()
+    depth_zone = summary.get("depth_zone", "")
+    conditions = summary.get("conditions", {}) or {}
+
+    temp_f = conditions.get("temp_f")
+    month = conditions.get("month")
+    clarity = conditions.get("clarity", "unknown")
+    wind_speed = conditions.get("wind_speed")
+    sky = conditions.get("sky_condition", "unknown")
+    lake_type = conditions.get("lake_type")
+    forage = conditions.get("forage", [])
+
+    # Human-ish bits
+    month_name = ""
+    if isinstance(month, int) and 1 <= month <= 12:
+        month_name = calendar.month_name[month]
+
+    main_lures = summary.get("recommended_lures") or []
+    main_targets = summary.get("recommended_targets") or []
+
+    primary_lures = ", ".join(main_lures[:3]) if main_lures else "N/A"
+    primary_targets = ", ".join(main_targets[:2]) if main_targets else "N/A"
+
+    cond_bits = []
+    if temp_f is not None:
+        cond_bits.append(f"{round(temp_f)}°F")
+    if clarity:
+        cond_bits.append(f"{clarity} water")
+    if wind_speed is not None:
+        cond_bits.append(f"{round(wind_speed)} mph wind")
+    if sky:
+        cond_bits.append(sky)
+
+    cond_str = " · ".join(cond_bits) if cond_bits else "Conditions: N/A"
+
+    lake_forage_bits = []
+    if lake_type:
+        lake_forage_bits.append(lake_type.replace("_", " "))
+    if forage:
+        lake_forage_bits.append("forage: " + ", ".join(forage))
+    lf_str = " | ".join(lake_forage_bits) if lake_forage_bits else ""
+
+    header = f"{month_name + ' – ' if month_name else ''}{phase or 'Pattern'} ({depth_zone or 'depth N/A'})"
+
+    lines = [
+        header,
+        f"Key lures: {primary_lures}",
+        f"Key targets: {primary_targets}",
+        cond_str,
+    ]
+    if lf_str:
+        lines.append(lf_str)
+
+    return "\n".join(lines)
+
+
+def build_long_form_analysis(summary: Dict[str, Any]) -> str:
+    """
+    Guide-style explanation of what's going on and how to fish it.
+    """
+    phase = summary.get("phase", "")
+    depth_zone = summary.get("depth_zone", "")
+    conditions = summary.get("conditions", {}) or {}
+    clarity = conditions.get("clarity", "unknown")
+    temp_f = conditions.get("temp_f")
+    wind_speed = conditions.get("wind_speed")
+    sky = conditions.get("sky_condition", "unknown")
+    bottom = conditions.get("bottom_composition")
+    lake_type = conditions.get("lake_type")
+    forage = conditions.get("forage", [])
+
+    lures = summary.get("recommended_lures") or []
+    targets = summary.get("recommended_targets") or []
+    tips = summary.get("strategy_tips") or []
+    colors = summary.get("color_recommendations") or []
+
+    # Build a few short paragraphs rather than a wall of text
+    p1_bits = []
+    if phase:
+        p1_bits.append(f"Today's pattern is centered around a **{phase}** phase.")
+    if temp_f is not None:
+        p1_bits.append(f"Water temperature is around **{round(temp_f)}°F**.")
+    if clarity:
+        p1_bits.append(f"Water clarity is **{clarity}**.")
+    if sky:
+        p1_bits.append(f"Skies are **{sky}**.")
+    if wind_speed is not None:
+        p1_bits.append(f"Wind is roughly **{round(wind_speed)} mph**.")
+    if depth_zone:
+        p1_bits.append(f"Fish are expected to hold in the **{depth_zone} zone**.")
+
+    if lake_type:
+        p1_bits.append(f"This reads like a typical **{lake_type.replace('_', ' ')}** situation.")
+    if forage:
+        p1_bits.append(f"Primary forage: **{', '.join(forage)}**.")
+
+    p1 = " ".join(p1_bits)
+
+    # Lures & how to deploy them
+    if lures:
+        main_lures = ", ".join(lures[:4])
+        p2 = (
+            f"Start with these primary lures: **{main_lures}**. "
+            "Rotate through them based on how aggressive the fish feel and how they react to each presentation."
+        )
+    else:
+        p2 = "Use a mix of confidence baits that match the conditions and depth zone described above."
+
+    # Where to fish
+    if targets:
+        p3 = (
+            "Focus on the following areas: "
+            + ", ".join(targets)
+            + ". Think about wind, current, and how bait will naturally position in those places."
+        )
+    else:
+        p3 = "Target obvious structure and cover in the given depth zone and let the wind and bait dictate the best banks."
+
+    # Strategy tips + colors
+    tips_text = " ".join(tips) if tips else ""
+    if colors:
+        color_text = (
+            "Recommended color families include: **"
+            + ", ".join(colors[:5])
+            + "**."
+        )
+    else:
+        color_text = ""
+
+    p4 = " ".join([tips_text, color_text]).strip()
+
+    paragraphs = [p for p in [p1, p2, p3, p4] if p]
+    return "\n\n".join(paragraphs)
+
+
+def build_gear_checklist(summary: Dict[str, Any]) -> List[str]:
+    """
+    Generates a simple gear checklist from lure setups.
+    """
+    setups = summary.get("lure_setups") or []
+    checklist: List[str] = []
+
+    seen = set()
+    for s in setups:
+        lure = s.get("lure", "Lure")
+        rod = s.get("rod", "")
+        reel = s.get("reel", "")
+        line = s.get("line", "")
+        size = s.get("lure_size", "")
+        key = (lure, rod, reel, line, size)
+
+        if key in seen:
+            continue
+        seen.add(key)
+
+        parts = [lure]
+        if size:
+            parts.append(f"size: {size}")
+        if rod:
+            parts.append(f"rod: {rod}")
+        if reel:
+            parts.append(f"reel: {reel}")
+        if line:
+            parts.append(f"line: {line}")
+
+        checklist.append(" · ".join(parts))
+
+    return checklist
+
+
+def build_backup_plans(summary: Dict[str, Any]) -> Dict[str, str]:
+    """
+    Simple Plan B / Plan C based on phase and depth.
+
+    This is intentionally lightweight and generic for now.
+    """
+    phase = (summary.get("phase") or "").lower()
+    depth_zone = (summary.get("depth_zone") or "").lower()
+    conditions = summary.get("conditions", {}) or {}
+    clarity = (conditions.get("clarity") or "").lower()
+
+    plan_b = ""
+    plan_c = ""
+
+    if phase in ("pre-spawn", "spawn/post-spawn"):
+        plan_b = (
+            "If the main moving bait bite fades, slow down with a jig, "
+            "ned rig, or shaky head on the same targets and add more pauses."
+        )
+        plan_c = (
+            "If fish completely shut down, slide slightly deeper off the obvious structure "
+            "and drag a finesse presentation slowly, watching your electronics for isolated fish."
+        )
+    elif phase == "summer":
+        if depth_zone == "offshore":
+            plan_b = (
+                "If the offshore school doesn't fire, try a smaller profile like a dropshot "
+                "or jighead minnow and fish vertically over them."
+            )
+            plan_c = (
+                "If offshore is dead, move shallower during low light windows and run a topwater "
+                "or swim jig around shade and shallow cover."
+            )
+        else:
+            plan_b = (
+                "If mid-depth structure slows down, check nearby offshore humps or secondary points "
+                "and lean more on your electronics."
+            )
+            plan_c = (
+                "If everything is tough, focus on the highest percentage shade: docks, overhanging "
+                "trees, or grass mats with a slow presentation."
+            )
+    elif phase == "fall":
+        plan_b = (
+            "If the obvious bait chasers won't commit, downsize your baits and keep them higher "
+            "in the water column while following bait into the creeks."
+        )
+        plan_c = (
+            "If fish aren't around visible bait, target key ambush spots like points, corners of "
+            "grass lines, and small rock transitions with a jig or worm."
+        )
+    elif phase == "winter":
+        plan_b = (
+            "If they won't touch reaction baits, commit to a jerkbait, jig, or dropshot and fish "
+            "painfully slow around steep structure and bait."
+        )
+        plan_c = (
+            "If it's truly tough, focus on the warmest water available—sunny banks, inflows, or "
+            "slightly stained water and grind it out with confidence baits."
+        )
+    else:
+        plan_b = (
+            "Adjust one variable at a time—depth, speed, or bait profile—while staying around high-percentage structure."
+        )
+        plan_c = (
+            "If all else fails, return to your confidence technique and methodically work through "
+            "key areas, letting conditions and bait presence guide you."
+        )
+
+    if "muddy" in clarity:
+        plan_c += " In muddy water, keep baits high contrast, noisy, and close to cover."
+
+    return {
+        "plan_b": plan_b,
+        "plan_c": plan_c,
+    }
+
+
+def build_narrative(summary: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Wrapper that builds all narrative artifacts for a given summary dict.
+    """
+    return {
+        "pattern_card": build_pattern_card(summary),
+        "analysis": build_long_form_analysis(summary),
+        "gear_checklist": build_gear_checklist(summary),
+        "backup_plans": build_backup_plans(summary),
+    }
 
 # ---------------------------------------------------------------------------
 # High-level pattern builders
@@ -1099,6 +1365,21 @@ def build_pattern_summary(
 
     notes = " ".join(strategy_tips) if strategy_tips else ""
 
+    summary: Dict[str, Any] = {
+        "phase": phase,
+        "depth_zone": depth_zone,
+        "recommended_lures": tuned_lures,
+        "recommended_targets": recommended_targets,
+        "strategy_tips": strategy_tips,
+        "color_recommendations": color_recommendations,
+        "lure_setups": lure_setups,
+        "conditions": conditions,
+        "notes": notes,
+    }
+
+    # 🔥 Narrative layer: pattern card, analysis, gear checklist, backup plans
+    summary["narrative"] = build_narrative(summary)
+    
     return {
         "phase": phase,
         "depth_zone": depth_zone,

@@ -16,6 +16,7 @@ class BasicPatternResponse(BaseModel):
     targets: List[str]
     notes: str
 
+
 class LureSetup(BaseModel):
     lure: str
     technique: str
@@ -31,10 +32,10 @@ class ProPatternRequest(BaseModel):
     month: int
     clarity: str
     wind_speed: float
-    sky_condition: str
+    sky_condition: str          # accepts "cloudy" fine
     depth_ft: Optional[float] = None
     bottom_composition: Optional[str] = None
-    forage: Optional[List[str]] = None  # e.g. ["shad", "bluegill"]
+    forage: Optional[List[str]] = None  # ["shad", "bluegill"], etc.
 
 
 class ProPatternResponse(BaseModel):

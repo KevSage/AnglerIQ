@@ -1,0 +1,3 @@
+# Core Engine Specification
+## Weather
+Details...
