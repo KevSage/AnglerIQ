@@ -170,3 +170,40 @@ Endgame:
 ---
 
 # 3. Tier Relationships
+
+- Tier 5 — Sonar + Spatial Intelligence
+- Tier 4 — Weather + Historical Modeling
+- Tier 3 — Adaptive Environmental Engine
+- Tier 2 — Pro Pattern Engine (V1)
+- Tier 1 — Basic Pattern Engine (V1)
+- Tier 0 — Deterministic Foundation Logic
+
+Tiers are additive.  
+No tier replaces a lower one — each builds on the deterministic foundation.
+
+---
+
+# 4. Why This Architecture?
+
+- Allows **simple entry** (Basic) but **deep growth** (Pro → Advanced).
+- Keeps logic **modular** and **maintainable**.
+- Prevents LLM from creating inconsistent patterns.
+- Makes commercialization easier (tiered pricing in V2+).
+- Smooth path for V2/V3 expansion without rewriting logic.
+
+---
+
+# 5. V1 Scope Summary
+
+| Tier   | Included in V1? | Notes                    |
+| ------ | --------------- | ------------------------ |
+| Tier 0 | ✅              | Full deterministic logic |
+| Tier 1 | ✅              | Basic engine             |
+| Tier 2 | ✅              | Pro engine               |
+| Tier 3 | ⏳              | Roadmapped               |
+| Tier 4 | ⏳              | Roadmapped               |
+| Tier 5 | ⏳              | Long-term                |
+
+---
+
+# End of Document

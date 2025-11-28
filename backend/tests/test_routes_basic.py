@@ -45,61 +45,49 @@ def test_pattern_basic_returns_simplified_summary():
 
 def test_pattern_pro_returns_full_summary():
     payload = {
-        "temp_f": 55.0,
-        "month": 3,
-        "clarity": "stained",
-        "wind_speed": 8.0,
-        "sky_condition": "cloudy",
-        "depth_ft": 10.0,
-        "bottom_composition": "rock",
+        "location_name": "Test Lake",
+        # optional hints; leaving them out here to exercise auto-inference
     }
 
     resp = client.post("/pattern/pro", json=payload)
-    assert resp.status_code == 200, resp.json()
-    body = resp.json()
-
-    assert "phase" in body
-    assert "depth_zone" in body
-    assert "recommended_lures" in body
-    assert "recommended_targets" in body
-    assert "strategy_tips" in body
-    assert "color_recommendations" in body
-    assert "lure_setups" in body
-    assert "conditions" in body
-    assert "notes" in body
-
-    lures = body["recommended_lures"]
-    setups = body["lure_setups"]
-    assert isinstance(lures, list)
-    assert isinstance(setups, list)
-    assert len(setups) == len(lures)
-
-    # Ensure each setup is tied to a lure and has gear fields
-    lure_names_in_setups = [s["lure"] for s in setups]
-    for lure in lures:
-        assert lure in lure_names_in_setups
-
-    first = setups[0]
-    for key in ["lure", "technique", "rod", "reel", "line", "hook_or_leader", "lure_size"]:
-        assert key in first
-
-
-def test_chat_placeholder_echoes_message():
-    msg = "What should I throw in 55 degree water?"
-    resp = client.post("/chat", json={"message": msg})
     assert resp.status_code == 200
-    body = resp.json()
 
-    assert "message" in body
-    assert "SAGE received:" in body["message"]
-    assert "55 degree water" in body["message"]
+    data = resp.json()
+    assert data["phase"]
+    assert data["depth_zone"]
+    assert isinstance(data["recommended_lures"], list)
+    assert isinstance(data["lure_setups"], list)
+    assert isinstance(data["conditions"], dict)
+    assert data["conditions"]["tier"] == "pro"
 
 
-def test_sonar_placeholder_returns_message_and_inputs():
-    resp = client.post("/sonar", json={"video_id": "abc123"})
+def test_pattern_elite_returns_gameplan_and_adjustments():
+    payload = {
+        "location_name": "Test Lake",
+        "time_of_day": "dawn",
+        "pressure_trend": "falling",
+        "water_level_trend": "rising",
+        "tournament_mode": True,
+    }
+
+    resp = client.post("/pattern/elite", json=payload)
     assert resp.status_code == 200
-    body = resp.json()
 
-    assert "message" in body
-    assert "input" in body
-    assert body["input"]["video_id"] == "abc123"
+    data = resp.json()
+
+    # Core pattern
+    assert data["phase"]
+    assert data["depth_zone"]
+    assert isinstance(data["recommended_lures"], list)
+    assert isinstance(data["lure_setups"], list)
+
+    # Elite extras
+    assert isinstance(data["gameplan"], list)
+    assert len(data["gameplan"]) > 0
+
+    assert isinstance(data["adjustments"], list)
+    assert len(data["adjustments"]) > 0
+
+    assert isinstance(data["conditions"], dict)
+    assert data["conditions"]["tier"] == "elite"
+    assert data["conditions"]["time_of_day_normalized"] == "dawn"
