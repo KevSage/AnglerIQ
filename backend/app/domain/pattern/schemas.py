@@ -34,6 +34,7 @@ class ProPatternRequest(BaseModel):
     sky_condition: str
     depth_ft: Optional[float] = None
     bottom_composition: Optional[str] = None
+    forage: Optional[List[str]] = None  # e.g. ["shad", "bluegill"]
 
 
 class ProPatternResponse(BaseModel):

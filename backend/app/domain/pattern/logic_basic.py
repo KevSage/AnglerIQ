@@ -1,24 +1,32 @@
+from typing import List, Dict, Any
+
 from .schemas import BasicPatternRequest, BasicPatternResponse
-from .logic_common import classify_phase, infer_depth_zone, build_targets_and_tips
+# You can use either the engine version or your domain version
+# but we KNOW the engine one returns the dict shape your tests use:
+from app.engines.pattern.logic import build_basic_pattern_summary, build_targets_and_tips
+
 
 def build_basic_pattern(req: BasicPatternRequest) -> BasicPatternResponse:
-    phase = classify_phase(req.temp_f, req.month)
-    depth_zone = infer_depth_zone(phase, None)
+    """
+    Domain-level wrapper around the engine's build_basic_pattern_summary.
 
-    techniques = []
+    The engine returns a dict; we map it into BasicPatternResponse and
+    compute targets using the same engine-style helper.
+    """
+    summary: Dict[str, Any] = build_basic_pattern_summary(
+        temp_f=req.temp_f,
+        month=req.month,
+        clarity=req.clarity,
+        wind_speed=req.wind_speed,
+    )
 
-    if phase == "pre-spawn":
-        techniques = ["spinnerbait", "lipless crankbait", "jig"]
-    elif phase == "spawn/post-spawn":
-        techniques = ["weightless fluke", "texas rig", "wacky rig"]
-    elif phase == "summer":
-        techniques = ["deep crankbait", "carolina rig", "big worm"]
-    elif phase == "winter":
-        techniques = ["jerkbait", "finesse jig", "blade bait"]
-    else:
-        techniques = ["moving bait (swimbait, crankbait)", "spinnerbait"]
+    phase = summary["phase"]
+    depth_zone = summary["depth_zone"]
+    recommended_techniques: List[str] = summary["recommended_techniques"]
+    notes: str = summary.get("notes", "")
 
-    tips_targets = build_targets_and_tips(
+    # build_targets_and_tips returns a dict with "recommended_targets" and "strategy_tips"
+    targets_result = build_targets_and_tips(
         phase=phase,
         depth_zone=depth_zone,
         clarity=req.clarity,
@@ -26,15 +34,19 @@ def build_basic_pattern(req: BasicPatternRequest) -> BasicPatternResponse:
         bottom_composition=None,
     )
 
-    targets = tips_targets["recommended_targets"]
+    # Defensive handling in case this ever changes
+    if isinstance(targets_result, dict):
+        targets = targets_result.get("recommended_targets", [])
+    elif isinstance(targets_result, (list, tuple)):
+        # e.g. (targets, tips) fallback shape
+        targets = targets_result[0] if len(targets_result) >= 1 else []
+    else:
+        targets = []
 
     return BasicPatternResponse(
         phase=phase,
         depth_zone=depth_zone,
-        recommended_techniques=techniques,
+        recommended_techniques=recommended_techniques,
         targets=targets,
-        notes=(
-            "This is a simplified SAGE Basic pattern: use these techniques and targets "
-            "as a starting point, and upgrade to SAGE Pro for exact lures and detailed gear."
-        ),
+        notes=notes,
     )
