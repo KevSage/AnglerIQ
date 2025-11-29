@@ -1,5 +1,3 @@
-# tests/test_routes_vision_tier.py
-
 from fastapi.testclient import TestClient
 from app.main import app
 
@@ -43,17 +41,34 @@ def test_pattern_vision_tier_basic_flow():
     assert isinstance(data["adjustments"], list)
     assert isinstance(data["conditions"], dict)
 
-    # The fused path should annotate conditions
     conditions = data["conditions"]
 
-    assert conditions["tier"] == "elite"  # Elite remains elite even with vision
+    # Still Elite tier
+    assert conditions["tier"] == "elite"
+
+    # Vision flags and fusion block
     assert "vision_enhanced" in conditions
     assert conditions["vision_enhanced"] is True
 
-    # Fused context presence
     assert "fusion" in conditions
     fusion = conditions["fusion"]
-
     assert "sonar" in fusion
     assert "weather" in fusion
     assert "strength" in fusion
+
+    # 🔹 NEW: depth-related fields added by vision_adjustments
+    assert "base_depth_zone" in conditions
+    assert isinstance(conditions["base_depth_zone"], str)
+
+    assert "vision_depth_zone" in conditions
+    assert conditions["vision_depth_zone"] in ("shallow", "mid", "deep")
+
+    # 🔹 NEW: direct vision block for UI
+    assert "vision" in conditions
+    vision_block = conditions["vision"]
+    assert vision_block["depth_ft"] == 12.5
+    assert vision_block["arch_count"] == 5
+    assert vision_block["activity_level"] == "medium"
+    assert vision_block["bait_present"] is True
+    assert vision_block["bottom_hardness"] == "hard"
+    assert vision_block["stop_or_keep_moving"] == "stop"
