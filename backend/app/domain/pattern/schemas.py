@@ -67,17 +67,15 @@ class ProPatternRequest(BaseModel):
     """
     Pro = rules-based pattern engine with auto weather.
 
-    The client does NOT send date/month or weather.
-    We use location to fetch weather, but allow optional overrides for clarity
-    and bottom composition.
-
-    In V1, location_name is required; lat/lon are optional.
+    IMPORTANT:
+    - The app (not the user) should provide latitude/longitude.
+    - location_name is optional and mainly for debugging / future features.
     """
-    location_name: str
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    location_name: Optional[str] = None  # optional, can be omitted entirely
 
-    # Optional user hints
+    # Optional user / app hints about the water, not about location
     clarity: Optional[str] = None
     bottom_composition: Optional[str] = None  # "rock", "sand", "mud", etc.
     depth_ft: Optional[float] = None
@@ -91,37 +89,31 @@ class ProPatternResponse(BaseModel):
     recommended_targets: List[str]
     strategy_tips: List[str]
     color_recommendations: List[str]
-    lure_setups: List[LureSetup]
+    lure_setups: List["LureSetup"]
     conditions: Dict[str, Any]
     notes: str
-
-
-# --- UPDATED: ElitePatternRequest / Response on top of Pro ---
 
 
 class ElitePatternRequest(ProPatternRequest):
     """
     Elite = Pro + session context (no vision, no manual weather/date).
+
+    Location is still provided by the app (GPS), not the user typing.
     """
-    time_of_day: Optional[str] = None        # "dawn" | "midday" | "afternoon" | "evening" | "night"
+    time_of_day: Optional[str] = None        # "dawn" | "midday" | ...
     pressure_trend: Optional[str] = None    # "rising" | "falling" | "stable"
     water_level_trend: Optional[str] = None # "rising" | "falling" | "stable"
     tournament_mode: bool = False
 
 
 class ElitePatternResponse(BaseModel):
-    """
-    Elite returns:
-    - Pro-style pattern
-    - PLUS a session gameplan and adjustment rules.
-    """
     phase: str
     depth_zone: str
     recommended_lures: List[str]
     recommended_targets: List[str]
     strategy_tips: List[str]
     color_recommendations: List[str]
-    lure_setups: List[LureSetup]
+    lure_setups: List["LureSetup"]
     notes: str
 
     gameplan: List[str]

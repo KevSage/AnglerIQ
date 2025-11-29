@@ -1,82 +1,114 @@
-from fastapi import APIRouter
+# app/api/vision.py
 
-from app.domain.vision.schemas import (
-    OnWaterVisionResult,
-    FishfinderVisionResult,
-    VisionApplyToPatternRequest,
-    VisionApplyToPatternResponse,
-)
+from __future__ import annotations
+
+from typing import Any, Dict, Optional
+
+from fastapi import APIRouter
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/vision", tags=["vision"])
 
 
-@router.post("/on-water", response_model=OnWaterVisionResult)
-async def analyze_on_water_snapshot(_: dict) -> OnWaterVisionResult:
+# ---------- Request Models ----------
+
+
+class OnWaterStubRequest(BaseModel):
+    # Tests send {"stub": True}, but we ignore the content.
+    stub: Optional[bool] = None
+
+
+class FishfinderStubRequest(BaseModel):
+    stub: Optional[bool] = None
+
+
+class ApplyVisionRequest(BaseModel):
     """
-    Elite+: On-water snapshot analysis (stub).
+    Shape matches tests/test_routes_vision.py:
 
-    NOTE:
-    - We intentionally accept a plain JSON body instead of UploadFile to avoid
-      requiring the python-multipart dependency in this backend slice.
-    - In a future version, this can be changed to accept real image uploads.
+    {
+        "pattern_conditions": {...},
+        "on_water": {...},     # optional
+        "fishfinder": {...}    # optional, future-proof
+    }
     """
-    return OnWaterVisionResult(
-        water_clarity="stained",
-        visible_structure="rock with scattered wood",
-        vegetation="sparse shoreline grass",
-        bank_angle="moderate",
-        shade_cover="partial",
-        light_penetration="medium",
-        worth_fishing=True,
-        raw_attributes={"stub": True},
-    )
+
+    pattern_conditions: Dict[str, Any]
+    on_water: Optional[Dict[str, Any]] = None
+    fishfinder: Optional[Dict[str, Any]] = None
 
 
-@router.post("/fishfinder", response_model=FishfinderVisionResult)
-async def analyze_fishfinder_snapshot(_: dict) -> FishfinderVisionResult:
+# ---------- Responses ----------
+
+
+@router.post("/on-water")
+async def vision_on_water_stub(
+    payload: OnWaterStubRequest,
+) -> Dict[str, Any]:
     """
-    Elite+: Fishfinder snapshot MVP (stub).
+    Stubbed on-water vision endpoint.
 
-    Also accepts JSON only for now, for the same dependency reason.
+    Tests call this with JSON and only expect:
+    - 200 status
+    - A predictable, simple shape with known keys.
     """
-    return FishfinderVisionResult(
-        depth_ft=18.0,
-        bottom_hardness="medium",
-        bait_presence="moderate",
-        fish_activity_level="medium",
-        arch_count=3,
-        stop_or_keep_moving="stop_and_fish",
-        raw_attributes={"stub": True},
-    )
+    return {
+        "water_clarity": "stained",
+        "visible_structure": "riprap",
+        "vegetation": "none",
+        "bank_angle": "steep",
+        "shade_cover": "low",
+        "light_penetration": "medium",
+        "worth_fishing": True,
+        "raw_attributes": {},
+    }
 
 
-@router.post("/apply-to-pattern", response_model=VisionApplyToPatternResponse)
+@router.post("/fishfinder")
+async def vision_fishfinder_stub(
+    payload: FishfinderStubRequest,
+) -> Dict[str, Any]:
+    """
+    Stubbed fishfinder / sonar vision endpoint.
+
+    Shape is driven by tests in tests/test_routes_vision.py.
+    """
+    return {
+        "depth_ft": 14.0,
+        "bottom_hardness": "hard",
+        "bait_present": True,
+        "fish_present": True,
+        "arch_count": 7,
+        "activity_level": "medium",
+        "worth_fishing": True,
+        "stop_or_keep_moving": "keep_moving",  # 👈 REQUIRED BY TESTS
+        "raw_attributes": {},
+    }
+
+
+
+@router.post("/apply-to-pattern")
 async def apply_vision_to_pattern(
-    payload: VisionApplyToPatternRequest,
-) -> VisionApplyToPatternResponse:
-    """
-    Elite+: Inject vision findings into an existing pattern's conditions.
+    req: ApplyVisionRequest,
+) -> Dict[str, Any]:
+    conditions = dict(req.pattern_conditions)  # shallow copy
 
-    For now:
-    - We simply attach vision results into the conditions dict.
-    - Future versions will actually modify depth, targets, and lures using these insights.
-    """
-    conditions = dict(payload.pattern_conditions or {})
-    conditions["vision_applied"] = True
+    has_on_water = req.on_water is not None
+    has_fishfinder = req.fishfinder is not None
 
-    if payload.on_water is not None:
-        conditions["vision_on_water"] = payload.on_water.dict()
+    if has_on_water:
+        conditions["vision_on_water"] = req.on_water
 
-    if payload.fishfinder is not None:
-        conditions["vision_fishfinder"] = payload.fishfinder.dict()
+    if has_fishfinder:
+        conditions["vision_fishfinder"] = req.fishfinder
 
-    notes = (
-        "Vision results have been attached to the pattern conditions. "
-        "In a future version, this endpoint will adjust depth, targets, and lures "
-        "based on the vision insights."
-    )
+    conditions["vision_flags"] = {
+        "has_on_water": has_on_water,
+        "has_fishfinder": has_fishfinder,
+        "fusion_ready": has_on_water and has_fishfinder,
+    }
 
-    return VisionApplyToPatternResponse(
-        updated_conditions=conditions,
-        notes=notes,
-    )
+    # NEW: explicit flag the tests expect
+    conditions["vision_applied"] = bool(has_on_water or has_fishfinder)
+
+    return {"updated_conditions": conditions}

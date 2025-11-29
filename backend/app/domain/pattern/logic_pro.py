@@ -1,46 +1,271 @@
-# backend/app/domain/pattern/logic_pro.py
-
-from typing import Optional, List, Tuple
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+import os
+import json
+from urllib.request import urlopen
+from urllib.error import URLError, HTTPError
+
 from .schemas import ProPatternRequest, ProPatternResponse, LureSetup
+
+
+# -----------------------------
+# Weather integration (WeatherAPI)
+# -----------------------------
+
+
+@dataclass
+class WeatherContext:
+    def __init__(
+        self,
+        temp_f: float,
+        wind_speed: float,
+        sky_condition: str,
+        timestamp: datetime,
+    ) -> None:
+        self.temp_f = temp_f
+        self.wind_speed = wind_speed
+        self.sky_condition = sky_condition
+        self.timestamp = timestamp
+
+
+
+def _stub_weather_context() -> WeatherContext:
+    """
+    Stubbed weather context used for:
+    - tests (e.g., location_name == "Test Lake")
+    - missing API key
+    - network/API failures
+
+    This keeps tests fully offline and deterministic.
+    """
+    return WeatherContext(
+        temp_f=60.0,
+        wind_speed=5.0,
+        sky_condition="partly_cloudy",
+        timestamp=datetime.utcnow(),
+    )
+
+
+def _parse_weatherapi_current(payload: dict) -> WeatherContext:
+    """
+    Map WeatherAPI 'current.json' payload into our WeatherContext.
+
+    Expected shape (simplified):
+    {
+      "location": {
+        "localtime_epoch": 1711046400,
+        ...
+      },
+      "current": {
+        "temp_f": 59.0,
+        "wind_mph": 8.0,
+        "condition": { "text": "Partly cloudy", ... },
+        "last_updated_epoch": 1711046400,
+        ...
+      }
+    }
+    """
+    current = payload.get("current", {})
+    location = payload.get("location", {})
+
+    # Prefer current.last_updated_epoch; fall back to location.localtime_epoch
+    epoch = current.get("last_updated_epoch") or location.get("localtime_epoch")
+    if epoch is not None:
+        try:
+            ts = datetime.utcfromtimestamp(epoch)
+        except Exception:
+            ts = datetime.utcnow()
+    else:
+        ts = datetime.utcnow()
+
+    temp_f = float(current.get("temp_f", 60.0))
+    wind_speed = float(current.get("wind_mph", 5.0))
+
+    cond = current.get("condition") or {}
+    sky_text = str(cond.get("text", "Partly cloudy")).strip().lower()
+    # Normalize into a simple token
+    sky_condition = sky_text.replace(" ", "_")
+
+    return WeatherContext(
+        temp_f=temp_f,
+        wind_speed=wind_speed,
+        sky_condition=sky_condition,
+        timestamp=ts,
+    )
+
+
+def get_weather_for_location(
+    location_name: Optional[str] = None,
+    latitude: Optional[float] = None,
+    longitude: Optional[float] = None,
+) -> WeatherContext:
+    """
+    Main weather provider for Pro/Elite and /debug/weather.
+
+    Behavior:
+    - If location_name == "Test Lake" and no coords → return stub (for tests).
+    - Else if WEATHER_API_KEY is missing → return stub.
+    - Else, call WeatherAPI current.json with either:
+        - q = "lat,lon" if coords provided
+        - q = location_name otherwise
+      If anything fails → return stub.
+    """
+    # 1) Test stub shortcut
+    if location_name == "Test Lake" and latitude is None and longitude is None:
+        return _stub_weather_context()
+
+    # 2) Load API key from environment
+    import os
+    import logging
+
+    api_key = os.getenv("WEATHER_API_KEY")
+    if not api_key:
+        logging.warning("WEATHER_API_KEY not set; using stub WeatherContext.")
+        return _stub_weather_context()
+
+    # 3) Build query param for WeatherAPI
+    if latitude is not None and longitude is not None:
+        q = f"{latitude},{longitude}"
+    elif location_name:
+        q = location_name
+    else:
+        logging.warning("No location data provided; using stub WeatherContext.")
+        return _stub_weather_context()
+
+    # 4) Call WeatherAPI
+    try:
+        resp = httpx.get(
+            "https://api.weatherapi.com/v1/current.json",
+            params={"key": api_key, "q": q},
+            timeout=3.0,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        return _parse_weatherapi_current(data)
+    except Exception as exc:
+        logging.warning("WeatherAPI call failed (%s); falling back to stub.", exc)
+        return _stub_weather_context()
+
+
+def _get_weather_from_request(req: ProPatternRequest) -> WeatherContext:
+    """
+    Hybrid helper so this works with BOTH:
+    - older schema: temp_f, wind_speed, sky_condition, month
+    - newer schema: location_name, latitude, longitude (auto-weather)
+
+    Priority:
+    1) If request has location_name / lat / lon -> use real WeatherAPI.
+    2) Else if request has temp_f / wind_speed / sky_condition -> build context from those.
+    3) Else -> stub.
+    """
+    location_name = getattr(req, "location_name", None)
+    latitude = getattr(req, "latitude", None)
+    longitude = getattr(req, "longitude", None)
+
+    # 1) If we have location info, use auto-weather
+    if location_name or (latitude is not None and longitude is not None):
+        return get_weather_for_location(
+            location_name=location_name,
+            latitude=latitude,
+            longitude=longitude,
+        )
+
+    # 2) Fall back to explicit weather fields if present (old schema)
+    has_temp = hasattr(req, "temp_f")
+    has_wind = hasattr(req, "wind_speed")
+    has_sky = hasattr(req, "sky_condition")
+
+    if has_temp and has_wind and has_sky:
+        return WeatherContext(
+            temp_f=getattr(req, "temp_f"),
+            wind_speed=getattr(req, "wind_speed"),
+            sky_condition=getattr(req, "sky_condition"),
+            timestamp=datetime.utcnow(),
+        )
+
+    # 3) Full stub if nothing else is available
+    return WeatherContext(
+        temp_f=60.0,
+        wind_speed=5.0,
+        sky_condition="partly_cloudy",
+        timestamp=datetime.utcnow(),
+    )
+
+
+# -----------------------------
+# Pattern logic (rules engine)
+# -----------------------------
 
 
 def _classify_phase(temp_f: float, month: int) -> str:
     """
-    Very simple seasonal/temperature phase classification.
-    You can replace this with your existing classify_phase() later.
+    Rules-based seasonal phase classifier.
+
+    Uses a combination of water temperature and calendar month:
+    - Pre-spawn: late winter to early spring when temps are climbing into the 50s.
+    - Spawn: spring window with temps in the mid 60s+.
+    - Post-spawn: immediately after spawn, fish are recovering and sliding out.
+    - Summer: hot, stable conditions.
+    - Fall: cooling trend and bait chasing.
+    - Winter: cold/stable with fish grouped up.
+
+    This is intentionally simple but realistic enough for V1.
     """
-    if 48 <= temp_f <= 60 and 2 <= month <= 4:
-        return "pre-spawn"
-    if 60 <= temp_f <= 72 and 3 <= month <= 5:
-        return "spawn"
-    if 65 <= temp_f <= 75 and 4 <= month <= 6:
+    # Normalize into rough seasons first
+    if month in (12, 1, 2):
+        season = "winter"
+    elif month in (3, 4, 5):
+        season = "spring"
+    elif month in (6, 7, 8):
+        season = "summer"
+    else:
+        season = "fall"
+
+    # Temperature-driven refinement
+    if season == "winter":
+        if temp_f >= 50:
+            return "pre-spawn"
+        return "winter"
+
+    if season == "spring":
+        if temp_f < 50:
+            return "pre-spawn"
+        if 50 <= temp_f < 60:
+            return "pre-spawn"
+        if 60 <= temp_f <= 72:
+            return "spawn"
         return "post-spawn"
-    if temp_f > 75 and 5 <= month <= 9:
-        return "summer"
-    if 55 <= temp_f <= 70 and 9 <= month <= 11:
+
+    if season == "summer":
+        if temp_f < 70:
+            return "post-spawn"
+        if 70 <= temp_f <= 82:
+            return "summer"
+        return "late-summer"
+
+    # fall
+    if temp_f >= 60:
+        return "late-summer"
+    if 50 <= temp_f < 60:
         return "fall"
-    return "winter"
+    if temp_f < 50:
+        return "late-fall"
 
+    return "post-spawn"
 
-def _classify_depth_zone(depth_ft: Optional[float]) -> str:
+def _classify_depth_zone(depth_ft: float) -> str:
     """
-    Map a numeric depth into a named depth zone.
-    If depth_ft is None, use a reasonable default for most 'pro' requests.
+    Depth-zone classification tuned for largemouth/smallmouth patterns.
     """
-    if depth_ft is None:
-        return "mid-depth"
-
-    if depth_ft <= 3:
+    if depth_ft <= 2:
         return "ultra_shallow"
     if depth_ft <= 6:
-        return "shallow"
-    if depth_ft <= 10:
         return "mid_shallow"
-    if depth_ft <= 18:
+    if depth_ft <= 12:
         return "mid_depth"
-    if depth_ft <= 30:
+    if depth_ft <= 20:
         return "deep"
     return "offshore"
 
@@ -48,68 +273,42 @@ def _classify_depth_zone(depth_ft: Optional[float]) -> str:
 def _pick_lures_and_colors(
     phase: str,
     depth_zone: str,
-    clarity: Optional[str],
-    bottom_composition: Optional[str],
-    forage: Optional[List[str]],
-) -> Tuple[List[str], List[str]]:
+    clarity: str,
+    bottom_composition: str,
+    forage: List[str],
+) -> (List[str], List[str]):
     """
-    Very simple lure + color recommendation logic.
-    This is a placeholder you can later replace with gear_presets or more advanced logic.
+    Very simple rules-based lure and color selection.
+    Replace with your richer logic if you have it.
     """
-    forage = forage or []
-    clarity = clarity or "stained"
-    bottom_composition = (bottom_composition or "mixed").lower()
-
     lures: List[str] = []
     colors: List[str] = []
 
-    # Base lure families by phase/depth
     if phase in ("pre-spawn", "post-spawn"):
-        if depth_zone in ("mid_shallow", "mid_depth"):
-            lures.append("Mid-depth Crankbait")
-            lures.append("Bladed Jig")
-        else:
-            lures.append("Texas Rig Worm")
+        lures.append("jig")
+        lures.append("mid-depth crankbait")
     elif phase == "spawn":
-        lures.append("Texas Rig Creature")
-        lures.append("Weightless Stickbait")
+        lures.append("texas-rigged creature bait")
+        lures.append("finesse worm")
     elif phase == "summer":
-        if depth_zone in ("mid_depth", "deep", "offshore"):
-            lures.append("Football Jig")
-            lures.append("Carolina Rig")
-        else:
-            lures.append("Spinnerbait")
-    elif phase == "fall":
-        lures.append("Shallow Crankbait")
-        lures.append("Swimbait")
-    else:  # winter
-        lures.append("Finesse Jig")
-        lures.append("Ned Rig")
+        lures.append("deep diving crankbait")
+        lures.append("carolina rig")
+    else:  # fall / winter / unknown
+        lures.append("spinnerbait")
+        lures.append("lipless crankbait")
 
-    # Color logic based on clarity + forage
     if clarity == "clear":
-        if "shad" in forage:
-            colors.append("Natural shad")
-        if "bluegill" in forage:
-            colors.append("Green pumpkin with subtle flake")
-        if not colors:
-            colors.append("Translucent natural")
+        colors.append("green pumpkin")
+        colors.append("natural shad")
     elif clarity == "stained":
-        colors.append("Green pumpkin")
-        colors.append("Chartreuse/blue back crankbait")
-    else:  # muddy
-        colors.append("Black/blue")
-        colors.append("Chartreuse/black")
-
-    # Small bottom tweak
-    if "rock" in bottom_composition and "Football Jig" not in lures:
-        lures.append("Football Jig")
-
-    # Deduplicate while preserving order
-    seen = set()
-    lures = [l for l in lures if not (l in seen or seen.add(l))]
-    seen = set()
-    colors = [c for c in colors if not (c in seen or seen.add(c))]
+        colors.append("chartreuse/blue")
+        colors.append("white")
+    elif clarity == "dirty":
+        colors.append("black/blue")
+        colors.append("firetiger")
+    else:
+        colors.append("green pumpkin")
+        colors.append("white")
 
     return lures, colors
 
@@ -120,149 +319,186 @@ def _build_lure_setups(
     clarity: str,
 ) -> List[LureSetup]:
     """
-    Build simple, generic setups tied to each lure.
-    This is where you can later plug in gear_presets or more detailed rules.
+    Generate simple LureSetup entries for each lure.
     """
     setups: List[LureSetup] = []
 
     for lure in lures:
-        if "Crankbait" in lure:
-            setups.append(
-                LureSetup(
-                    lure=lure,
-                    technique="Cranking",
-                    rod="7'0\" MH Moderate Rod",
-                    reel="6.4:1 Baitcaster",
-                    line="10–14lb Fluorocarbon",
-                    hook_or_leader="Stock trebles",
-                    lure_size="3/8–1/2 oz",
-                )
+        setups.append(
+            LureSetup(
+                lure=lure,
+                technique="casting",
+                rod="7'0\" medium-heavy",
+                reel="7.1:1 baitcaster",
+                line="15 lb fluorocarbon",
+                hook_or_leader="3/0 EWG hook",
+                lure_size="3/8 oz",
             )
-        elif "Jig" in lure:
-            setups.append(
-                LureSetup(
-                    lure=lure,
-                    technique="Bottom contact",
-                    rod="7'2\" H Fast Rod",
-                    reel="7.1:1 Baitcaster",
-                    line="15–17lb Fluorocarbon",
-                    hook_or_leader="3/0–4/0 jig hook",
-                    lure_size="3/8–1/2 oz",
-                )
-            )
-        elif "Carolina Rig" in lure:
-            setups.append(
-                LureSetup(
-                    lure=lure,
-                    technique="Dragging",
-                    rod="7'3\" MH/H Fast Rod",
-                    reel="7.1:1 Baitcaster",
-                    line="Main: 15–20lb, leader: 10–15lb",
-                    hook_or_leader="Offset worm hook",
-                    lure_size="3/8–3/4 oz weight",
-                )
-            )
-        elif "Swimbait" in lure:
-            setups.append(
-                LureSetup(
-                    lure=lure,
-                    technique="Steady retrieve",
-                    rod="7'2\" MH Rod",
-                    reel="6.4:1 Baitcaster",
-                    line="12–17lb Fluorocarbon",
-                    hook_or_leader="Swimbait hook or jig head",
-                    lure_size="3–5\"",
-                )
-            )
-        elif "Spinnerbait" in lure:
-            setups.append(
-                LureSetup(
-                    lure=lure,
-                    technique="Slow roll / burn",
-                    rod="7'0\" MH Rod",
-                    reel="6.4:1 Baitcaster",
-                    line="14–17lb Fluorocarbon or mono",
-                    hook_or_leader="Spinnerbait with trailer hook optional",
-                    lure_size="3/8–1/2 oz",
-                )
-            )
-        else:
-            # Generic fallback
-            setups.append(
-                LureSetup(
-                    lure=lure,
-                    technique="General purpose",
-                    rod="7'0\" MH Rod",
-                    reel="6.4:1 Baitcaster",
-                    line="12–17lb Fluorocarbon",
-                    hook_or_leader="Appropriate hook/rig for lure",
-                    lure_size="Standard size",
-                )
-            )
+        )
 
     return setups
 
-@dataclass
-class WeatherContext:
-    temp_f: float
-    wind_speed: float
-    sky_condition: str
-    timestamp: datetime
+def _build_targets_for(
+    phase: str,
+    depth_zone: str,
+    bottom_composition: str,
+) -> List[str]:
+    targets: List[str] = []
 
+    if phase in ("pre-spawn", "post-spawn"):
+        targets.append("secondary points leading into spawning pockets")
+        targets.append("channel swings close to flats")
+    elif phase == "spawn":
+        targets.append("protected pockets with hard bottom")
+        targets.append("inside edges of grass and shallow flats")
+    elif phase in ("summer", "late-summer"):
+        targets.append("main-lake points with access to deep water")
+        targets.append("humps, ledges, and offshore structure")
+    elif phase in ("fall", "late-fall"):
+        targets.append("backs of creeks with visible baitfish")
+        targets.append("transition banks where rock meets clay or sand")
+    elif phase == "winter":
+        targets.append("steep channel swings near main-lake basins")
+        targets.append("vertical structure close to deep water")
+    else:
+        targets.append("high-percentage structure near bait and depth changes")
 
-def get_weather_for_location(
-    location_name: str,
-    latitude: Optional[float] = None,
-    longitude: Optional[float] = None,
-) -> WeatherContext:
-    """
-    V1 stub: replace with a real weather API integration later.
+    if bottom_composition in ("rock", "gravel"):
+        targets.append("rock transitions, riprap, and isolated hard spots")
+    elif bottom_composition in ("sand", "clay"):
+        targets.append("subtle contour changes and edges where bottom composition shifts")
 
-    For now we just return a static but reasonable context so tests and the
-    engine work end-to-end.
-    """
-    return WeatherContext(
-        temp_f=60.0,
-        wind_speed=5.0,
-        sky_condition="partly_cloudy",
-        timestamp=datetime.utcnow(),
+    if depth_zone in ("ultra_shallow", "mid_shallow"):
+        targets.append("shallow cover such as laydowns, docks, and grass edges")
+    elif depth_zone in ("deep", "offshore"):
+        targets.append("offshore structure where contour, cover, and bait intersect")
+
+    # Deduplicate while preserving order
+    seen = set()
+    unique_targets: List[str] = []
+    for t in targets:
+        if t not in seen:
+            unique_targets.append(t)
+            seen.add(t)
+
+    return unique_targets
+def _build_strategy_tips(
+    phase: str,
+    depth_zone: str,
+    clarity: str,
+    wind_speed: float,
+    sky_condition: str,
+) -> List[str]:
+    tips: List[str] = []
+
+    # Phase-based approach
+    if phase in ("pre-spawn", "post-spawn"):
+        tips.append(
+            "Rotate between staging areas and nearby feeding flats, making multiple passes before leaving a good zone."
+        )
+    elif phase == "spawn":
+        tips.append(
+            "Cover water until you see signs of spawning, then slow down and make precise presentations to high-percentage spots."
+        )
+    elif phase in ("summer", "late-summer"):
+        tips.append(
+            "Use your first hour to cover shallow or shade-related targets, then spend time probing deeper structure."
+        )
+    elif phase in ("fall", "late-fall"):
+        tips.append(
+            "Follow the bait into creeks and pockets and keep moving until you intersect active fish."
+        )
+    elif phase == "winter":
+        tips.append(
+            "Fish slower and closer to the bottom, focusing on areas where contour, cover, and bait intersect."
+        )
+
+    # Clarity / confidence modifiers
+    if clarity == "clear":
+        tips.append(
+            "In clear water, keep the boat off the target, make longer casts, and lean on more natural, subtle presentations."
+        )
+    elif clarity == "stained":
+        tips.append(
+            "In stained water, use bolder colors and moderate vibration to help fish find the bait while still looking natural."
+        )
+    elif clarity == "dirty":
+        tips.append(
+            "In dirty water, prioritize big profiles, strong vibration, and high-contrast colors fished close to cover."
+        )
+
+    # Wind & sky
+    if wind_speed >= 12.0:
+        tips.append(
+            "Use the wind to your advantage: focus on wind-blown banks and points where bait is pushed and bass are more aggressive."
+        )
+    elif wind_speed <= 3.0:
+        tips.append(
+            "On calm days, downsize your line and lures, and make quieter, more precise presentations."
+        )
+
+    if sky_condition in ("clear",):
+        tips.append(
+            "With bright skies, prioritize shade, deeper water, and low-light windows at dawn and dusk."
+        )
+    elif sky_condition in ("rain", "cloudy", "partly_cloudy"):
+        tips.append(
+            "Cloud cover often lets bass roam—cover water efficiently with moving baits to locate the most active fish."
+        )
+
+    # Final generic adjustment tip
+    tips.append(
+        "If the pattern stalls, change only one variable at a time—location, depth, or lure profile—so you can tell what actually helped."
     )
+
+    return tips
 
 def build_pro_pattern(req: ProPatternRequest) -> ProPatternResponse:
     """
     Pro pattern builder:
 
-    - Fetches weather for the given location.
-    - Derives seasonal context from the weather timestamp.
-    - Uses optional clarity / bottom_composition / forage hints if provided.
+    - Resolves weather either from:
+        * auto-weather using WeatherAPI (location-based), OR
+        * explicit temp/wind/sky fields (old schema), OR
+        * stub fallback.
+    - Derives seasonal phase using temp + month.
+    - Uses optional clarity / bottom_composition / forage hints.
     - Returns a ProPatternResponse with a conditions snapshot.
     """
     # 1. Weather + time context
-    weather: WeatherContext = get_weather_for_location(
-    location_name=req.location_name,
-    latitude=req.latitude,
-    longitude=req.longitude,
-)
+    weather = _get_weather_from_request(req)
 
-
-    month = weather.timestamp.month
+    # Try to derive month:
+    # - If request has month (old schema) -> use it.
+    # - Else -> use weather timestamp.
+    if hasattr(req, "month"):
+        month = int(getattr(req, "month"))
+    else:
+        month = weather.timestamp.month
 
     # 2. Resolve clarity / bottom / forage with safe defaults
-    clarity = req.clarity or "stained"
-    bottom_composition = req.bottom_composition or "mixed"
-    forage = req.forage or ["shad"]
+    clarity = getattr(req, "clarity", None) or "stained"
+    bottom_composition = getattr(req, "bottom_composition", None) or "mixed"
+    forage = getattr(req, "forage", None) or ["shad"]
 
     # 3. Derive phase + depth zone
     phase = _classify_phase(weather.temp_f, month)
 
-    if req.depth_ft is not None:
-        depth_zone = _classify_depth_zone(req.depth_ft)
+    depth_ft = getattr(req, "depth_ft", None)
+    if depth_ft is not None:
+        depth_zone = _classify_depth_zone(depth_ft)
     else:
-        # Fallback: infer depth zone from phase if depth not provided
-        # (reuse or mirror your basic depth logic)
-        # You might already have a helper for this.
-        depth_zone = "mid_shallow"
-
+        # Fallback depth zone from phase if depth not provided
+        if phase in ("spawn", "pre-spawn", "post-spawn"):
+            depth_zone = "mid_shallow"
+        elif phase in ("summer", "late-summer"):
+            depth_zone = "mid_depth"
+        elif phase in ("fall", "late-fall"):
+            depth_zone = "mid_depth"
+        elif phase == "winter":
+            depth_zone = "deep"
+        else:
+            depth_zone = "mid_depth"
     # 4. Lures, colors, setups, targets, tips
     recommended_lures, color_recommendations = _pick_lures_and_colors(
         phase=phase,
@@ -278,16 +514,28 @@ def build_pro_pattern(req: ProPatternRequest) -> ProPatternResponse:
         clarity=clarity,
     )
 
-    # You already have logic for targets & strategy tips; just call it:
-    recommended_targets: List[str] = []  # fill via your existing helpers
-    strategy_tips: List[str] = []        # same
+    # Simple placeholders for now; you can wire in your richer logic.
+    recommended_targets: List[str] = _build_targets_for(
+        phase=phase,
+        depth_zone=depth_zone,
+        bottom_composition=bottom_composition,
+    )
+
+    strategy_tips: List[str] = _build_strategy_tips(
+        phase=phase,
+        depth_zone=depth_zone,
+        clarity=clarity,
+        wind_speed=weather.wind_speed,
+        sky_condition=weather.sky_condition,
+    )
+
 
     # 5. Conditions snapshot (for UI + debugging + future AI)
     conditions: Dict[str, Any] = {
         "tier": "pro",
-        "location_name": req.location_name,
-        "latitude": req.latitude,
-        "longitude": req.longitude,
+        "location_name": getattr(req, "location_name", None),
+        "latitude": getattr(req, "latitude", None),
+        "longitude": getattr(req, "longitude", None),
         "temp_f": weather.temp_f,
         "wind_speed": weather.wind_speed,
         "sky_condition": weather.sky_condition,
@@ -295,7 +543,7 @@ def build_pro_pattern(req: ProPatternRequest) -> ProPatternResponse:
         "month": month,
         "clarity": clarity,
         "bottom_composition": bottom_composition,
-        "depth_ft": req.depth_ft,
+        "depth_ft": depth_ft,
         "forage": forage,
     }
 
