@@ -96,9 +96,8 @@ class SagePreferences(BaseModel):
 class SageChatRequest(BaseModel):
     message: str
     context: Optional[SageContext] = None
-    preferences: Optional[SagePreferences] = None
-    user_name: Optional[str] = None   # NEW
-
+    user_name: Optional[str] = None  # NEW – name from frontend
+    # preferences: Optional[SagePreferences] = None  # (for later wiring)
 
 
 class SageChatResponse(BaseModel):
@@ -575,8 +574,16 @@ def sage_chat(payload: SageChatRequest) -> SageChatResponse:
     # Ensure we always have a preferences object to work with
     prefs = payload.preferences or SagePreferences()
 
-    base_reply_lines: list[str] = [
-        "SAGE AI is online and ready to help.",
+    # Very simple, deterministic reply for now.
+    # This keeps tests predictable, but now respects optional user_name
+    # and uses the in-app branding ("SAGE" only).
+    if payload.user_name:
+        greeting = f"Hey {payload.user_name}, Catch anything yet?."
+    else:
+        greeting = "I guess that's why they don't call it Catchin'. Need any help?"
+
+    base_reply_lines = [
+        greeting,
         f"You asked: {payload.message!r}",
     ]
 

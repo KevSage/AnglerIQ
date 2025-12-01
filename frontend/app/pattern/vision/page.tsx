@@ -2,251 +2,418 @@
 
 import React from "react";
 
-type GameplanRow = {
-  timeWindow: string;
-  action: string;
+// ---------- Data model from your spec ----------
+
+export interface PatternDetail {
+  phase: string;
+  depthZone: string;
+  structure: string;
+
+  tier: "pro" | "elite" | "vision";
+
+  technique: {
+    name: string;
+    style: string;
+    bullets: string[];
+    iconKey: string;
+  };
+
+  microPattern: string;
+
+  timeline: {
+    window: string;
+    action: string;
+  }[];
+
+  adjustments: {
+    label: string;
+    guidance: string;
+  }[];
+
+  lures: {
+    name: string;
+    iconKey: string;
+  }[];
+
+  colors: {
+    name: string;
+    hex: string;
+  }[];
+}
+
+interface PatternDetailProps {
+  pattern: PatternDetail;
+}
+
+// ---------- Inline SVG icons (minimal, tactical) ----------
+
+// Chatterbait inline icon (24x24, currentColor)
+const ChatterbaitIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+  <svg
+    viewBox="0 0 32 32"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={1.4}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
+    {/* Blade */}
+    <polygon points="6,10 10,8 12,12 8,14" />
+
+    {/* Line tie */}
+    <line x1="4" y1="9" x2="6" y2="10" />
+
+    {/* Jig head */}
+    <circle cx="16" cy="16" r="2.2" />
+
+    {/* Hook */}
+    <path d="M18 16 L23 14 C25 13.5 27 14.5 27.5 16.5 C28 18.5 26.8 20.5 24.8 21 L21 22.2" />
+
+    {/* Skirt */}
+    <path d="M14 17 L9 19" />
+    <path d="M14 18.5 L9.5 21" />
+    <path d="M14 20 L10 22.5" />
+  </svg>
+);
+
+// Swim jig inline icon
+const SwimJigIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+  <svg
+    viewBox="0 0 32 32"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={1.4}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
+    {/* Head / body */}
+    <path d="M10 18 C12.5 16.5 15 16.5 17.5 17.4 C18.6 17.8 19.5 18.4 20.3 19.1" />
+    {/* Line tie */}
+    <circle cx="11" cy="16" r="0.9" />
+    {/* Hook */}
+    <path d="M18 17.5 C20 17 22 18 22.5 20 C23 22 21.8 24 19.8 24.5 L17.2 25.1" />
+    {/* Skirt lines */}
+    <path d="M12 18.5 L7.5 21" />
+    <path d="M12.5 19.8 L8 22.4" />
+    <path d="M13 21 L9 23.7" />
+  </svg>
+);
+
+// Simple map from iconKey → icon component
+const lureIconMap: Record<
+  string,
+  React.ComponentType<React.SVGProps<SVGSVGElement>>
+> = {
+  chatterbait: ChatterbaitIcon,
+  swim_jig: SwimJigIcon,
+  // you can add more keys: lipless_crank, swimbait_soft, etc
 };
 
-type Adjustment = {
-  label: string;
-  body: string;
+const LureIcon: React.FC<{ iconKey: string; className?: string }> = ({
+  iconKey,
+  className,
+}) => {
+  const Icon = lureIconMap[iconKey] ?? ChatterbaitIcon;
+  return <Icon className={className} />;
 };
 
-type LureChip = {
-  name: string;
-  role?: string;
-};
+// Vision hero silhouette for chatterbait (gradient filled)
+const ChatterbaitHeroSilhouette: React.FC<React.SVGProps<SVGSVGElement>> = (
+  props
+) => (
+  <svg viewBox="0 0 100 60" preserveAspectRatio="xMidYMid slice" {...props}>
+    <defs>
+      <linearGradient
+        id="chatterbaitHeroGrad"
+        x1="0%"
+        y1="0%"
+        x2="100%"
+        y2="100%"
+      >
+        <stop offset="0%" stopColor="#4A7BA7" />
+        <stop offset="100%" stopColor="#1B314A" />
+      </linearGradient>
+    </defs>
+    <g fill="url(#chatterbaitHeroGrad)" opacity={0.16}>
+      {/* Blade */}
+      <polygon points="8,16 24,10 28,18 12,22" />
+      {/* Head */}
+      <circle cx="40" cy="28" r="5" />
+      {/* Hook / body sweep */}
+      <path d="M44 28 Q60 22 76 26 Q84 28 88 32 Q92 36 90 40 Q88 44 82 46 L68 49" />
+      {/* Skirt */}
+      <path d="M36 30 L22 38" />
+      <path d="M38 34 L24 42" />
+      <path d="M40 38 L26 46" />
+    </g>
+  </svg>
+);
 
-type ColorPill = {
-  name: string;
-  swatchClass: string; // tailwind bg class
-};
+// ---------- Pattern Detail Screen ----------
 
-export default function VisionPatternDetailPage() {
-  // ⚠️ Demo data only – later replace with real pattern response from backend
-  const phase = "Early Pre-Spawn";
-  const depthZone = "Mid-shallow (4–8 ft)";
-  const structure = "Wind-blown grass edges with scattered wood";
+export function PatternDetailScreen({ pattern }: PatternDetailProps) {
+  const {
+    phase,
+    depthZone,
+    structure,
+    technique,
+    microPattern,
+    timeline,
+    adjustments,
+    lures,
+    colors,
+    tier,
+  } = pattern;
 
-  const techniqueName = "Chatterbait — Power Fishing";
-  const techniqueBullets = [
-    "Slow-roll along outside grass edges, ticking the tops when possible.",
-    "Vary retrieve speed to find the cadence that keeps the blade thumping but not blowing out.",
-    "Make angled casts across the grass line to cover more water per pass.",
-  ];
-
-  const microPatternSentence =
-    "Early pre-spawn bass are holding shallow around grass edges — a great place to start with a moving bait that hunts.";
-
-  const gameplan: GameplanRow[] = [
-    {
-      timeWindow: "6–9 AM",
-      action:
-        "Cover wind-blown shallow grass with a chatterbait, focusing on points and irregularities.",
-    },
-    {
-      timeWindow: "9–11 AM",
-      action:
-        "Slide slightly deeper (6–8 ft) and trace the outside grass edge or first break.",
-    },
-    {
-      timeWindow: "Midday",
-      action:
-        "Target shade pockets, isolated wood, or docks in the same grass-lined stretches.",
-    },
-    {
-      timeWindow: "Late Afternoon",
-      action:
-        "Revisit productive banks, adjusting angle and retrieve speed to trigger followers.",
-    },
-  ];
-
-  const adjustments: Adjustment[] = [
-    {
-      label: "If water clarity improves…",
-      body: "Downsize your chatterbait profile and go more natural on color (green pumpkin, bluegill, or translucent shad).",
-    },
-    {
-      label: "If wind dies completely…",
-      body: "Mix in a swim jig or finesse swimbait to keep the same targets honest without overpowering flat water.",
-    },
-    {
-      label: "If you’re seeing followers but no commits…",
-      body: "Speed up the retrieve or add a couple of sharp rod pops mid-cast to create a change-up trigger.",
-    },
-  ];
-
-  const lureChips: LureChip[] = [
-    { name: "Chatterbait", role: "Primary" },
-    { name: "Swim Jig", role: "Backup" },
-    { name: "Lipless Crank", role: "Search" },
-    { name: "Finesse Swimbait", role: "Clean-up" },
-  ];
-
-  const colorPills: ColorPill[] = [
-    { name: "Green Pumpkin", swatchClass: "bg-green-700" },
-    { name: "Black / Blue", swatchClass: "bg-slate-900" },
-    { name: "White / Shad", swatchClass: "bg-slate-100" },
-    { name: "Chartreuse Accent", swatchClass: "bg-lime-400" },
-  ];
+  const isVision = tier === "vision";
 
   return (
-    <div className="min-h-screen bg-[#0b0f14] px-4 py-6 text-zinc-50">
+    <div className="min-h-screen bg-[#111111] px-4 py-6 text-white">
       <main className="mx-auto flex w-full max-w-3xl flex-col gap-4">
-        {/* Pattern Header */}
-        <section className="flex flex-col gap-1">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-300/80">
-            Vision Tier • Pattern Detail
+        {/* PATTERN HEADER */}
+        <section className="space-y-1 border-b border-white/10 pb-4">
+          <div className="text-[13px] text-white/90">
+            <span className="font-semibold">Phase: </span>
+            <span>{phase}</span>
           </div>
-          <h1 className="text-xl font-semibold text-zinc-50">{phase}</h1>
-          <p className="text-xs text-zinc-400">
-            Depth zone:{" "}
-            <span className="font-medium text-zinc-200">{depthZone}</span>
-          </p>
-          <p className="text-xs text-zinc-400">
-            Structure focus:{" "}
-            <span className="font-medium text-zinc-200">{structure}</span>
-          </p>
+          <div className="text-[13px] text-white/90">
+            <span className="font-semibold">Depth Zone: </span>
+            <span>{depthZone}</span>
+          </div>
+          <div className="text-[13px] text-white/90">
+            <span className="font-semibold">Structure: </span>
+            <span>{structure}</span>
+          </div>
         </section>
 
-        {/* Vision Technique Hero Card */}
-        <section className="relative overflow-hidden rounded-2xl border border-[#1b314a] bg-gradient-to-br from-[#122233] via-[#0f1822] to-[#05070b] p-4 shadow-[0_18px_40px_rgba(0,0,0,0.45)]">
-          {/* Ghosted silhouette – fake with gradient blob */}
+        {/* TECHNIQUE HERO CARD */}
+        {/* TECHNIQUE HERO CARD */}
+        <section className="relative w-full overflow-hidden rounded-2xl">
           <div
-            className="pointer-events-none absolute -right-16 -top-24 h-56 w-64 rotate-[14deg] bg-gradient-to-br from-[#4A7BA7] to-[#1B314A] opacity-[0.18]"
-            aria-hidden="true"
-          />
+            className={`relative p-5 shadow-[0_18px_40px_rgba(0,0,0,0.45)] ${
+              isVision
+                ? "bg-gradient-to-b from-[#101623] via-[#0c1018] to-[#1B314A]"
+                : "bg-gradient-to-b from-[#151515] to-[#1f2933]"
+            }`}
+          >
+            {isVision && (
+              <div className="pointer-events-none absolute -right-6 -top-6 h-40 w-56 rotate-[14deg]">
+                <ChatterbaitHeroSilhouette className="h-full w-full" />
+              </div>
+            )}
 
-          <div className="relative z-10 flex flex-col gap-2">
-            <div className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-300/80">
-              Vision Technique
-              <span className="h-[1px] w-10 bg-emerald-300/50" />
-            </div>
+            {/* Pro / Elite compact hero */}
+            {!isVision && (
+              <div className="mb-3 flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/5 text-white/80">
+                  <LureIcon iconKey={technique.iconKey} className="h-6 w-6" />
+                </div>
+                <div className="flex flex-col">
+                  <div className="text-sm font-semibold">
+                    {technique.name} — {technique.style}
+                  </div>
+                  <div className="text-[11px] uppercase tracking-[0.14em] text-white/50">
+                    {tier.toUpperCase()} TIER
+                  </div>
+                </div>
+              </div>
+            )}
 
-            <h2 className="text-lg font-semibold text-zinc-50">
-              {techniqueName}
-            </h2>
+            {/* Vision hero text */}
+            {isVision && (
+              <div className="relative mb-3">
+                {" "}
+                {/* relative so text sits above silhouette */}
+                <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-300/80">
+                  Vision Tier • Technique Hero
+                </div>
+                <div className="mt-1 text-lg font-semibold text-white drop-shadow">
+                  {technique.name} — {technique.style}
+                </div>
+              </div>
+            )}
 
-            <ul className="mt-1 list-disc space-y-1 pl-4 text-xs text-zinc-200/90">
-              {techniqueBullets.map((line) => (
-                <li key={line}>{line}</li>
+            <ul className="relative space-y-1 text-[14px]">
+              {technique.bullets.map((line) => (
+                <li key={line} className="flex gap-2">
+                  <span className="mt-[6px] h-1 w-1 rounded-full bg-white/70" />
+                  <span className="text-white/90">{line}</span>
+                </li>
               ))}
             </ul>
-
-            <p className="mt-3 rounded-xl bg-black/40 px-3 py-2 text-xs text-emerald-100/90 ring-1 ring-emerald-400/20">
-              {microPatternSentence}
-            </p>
           </div>
         </section>
 
-        {/* Gameplan Timeline */}
-        <section className="rounded-2xl border border-zinc-800 bg-gradient-to-b from-[#111827] to-[#05070b] p-4">
-          <h3 className="text-sm font-medium text-zinc-50">
-            Gameplan timeline
-          </h3>
-          <p className="mt-1 text-[11px] text-zinc-400">
-            A simple on-water flow. Move through these windows and adjust based
-            on how the fish respond.
-          </p>
+        {/* MICRO-PATTERN SENTENCE */}
+        <section className="pt-1">
+          <p className="text-[13px] text-white/85">{microPattern}</p>
+        </section>
 
-          <div className="mt-3 flex flex-col gap-2">
-            {gameplan.map((row) => (
+        {/* GAMEPLAN TIMELINE */}
+        <section>
+          <h2 className="mb-2 text-sm font-medium text-white">
+            Gameplan timeline
+          </h2>
+          <div className="space-y-1">
+            {timeline.map((slot) => (
               <div
-                key={row.timeWindow + row.action}
-                className="flex gap-3 rounded-xl bg-black/40 px-3 py-2 text-xs ring-1 ring-zinc-800/80"
+                key={slot.window + slot.action}
+                className="flex gap-3 text-sm"
               >
-                <div className="mt-[1px] min-w-[72px] text-[11px] font-semibold uppercase tracking-wide text-emerald-300/80">
-                  {row.timeWindow}
-                </div>
-                <div className="text-zinc-200">{row.action}</div>
+                <span className="w-20 text-[13px] text-white/60">
+                  {slot.window}
+                </span>
+                <span className="text-[14px] text-white/95">{slot.action}</span>
               </div>
             ))}
           </div>
         </section>
 
-        {/* Adjustments Panel (simple accordion-like list) */}
-        <section className="rounded-2xl border border-zinc-800 bg-[#080b11] p-4">
-          <h3 className="text-sm font-medium text-zinc-50">Adjustments</h3>
-          <p className="mt-1 text-[11px] text-zinc-400">
-            Quick pivots if the conditions shift while you&apos;re on this
-            stretch.
-          </p>
-
-          <div className="mt-3 flex flex-col gap-2">
+        {/* ADJUSTMENTS PANEL */}
+        <section>
+          <h2 className="mb-2 text-sm font-medium text-white">Adjustments</h2>
+          <div className="space-y-2">
             {adjustments.map((adj) => (
               <details
                 key={adj.label}
-                className="group rounded-xl bg-black/40 px-3 py-2 text-xs ring-1 ring-zinc-800/80"
+                className="group rounded-xl bg-white/5 p-3 text-sm"
               >
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-emerald-100">
-                  <span className="font-semibold text-[11px] uppercase tracking-wide">
-                    {adj.label}
-                  </span>
-                  <span className="text-[10px] text-zinc-400 group-open:hidden">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-2">
+                  <span className="font-medium text-white">{adj.label}</span>
+                  <span className="text-[11px] text-white/50 group-open:hidden">
                     Show
                   </span>
-                  <span className="hidden text-[10px] text-zinc-400 group-open:inline">
+                  <span className="hidden text-[11px] text-white/50 group-open:inline">
                     Hide
                   </span>
                 </summary>
-                <p className="mt-2 text-zinc-200">{adj.body}</p>
+                <p className="mt-2 text-[14px] text-white/85">{adj.guidance}</p>
               </details>
             ))}
           </div>
         </section>
 
-        {/* Lure Grid + Color Swatches */}
-        <section className="grid gap-4 md:grid-cols-[2fr_1.3fr]">
-          {/* Lure Grid */}
-          <div className="rounded-2xl border border-zinc-800 bg-[#080b11] p-4">
-            <h3 className="text-sm font-medium text-zinc-50">Lure set</h3>
-            <p className="mt-1 text-[11px] text-zinc-400">
-              Core baits that match this pattern. SAGE won&apos;t force all of
-              them — it&apos;s your rotation.
-            </p>
-
-            <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
-              {lureChips.map((lure) => (
-                <div
-                  key={lure.name}
-                  className="flex flex-col gap-1 rounded-xl bg-black/40 px-3 py-2 ring-1 ring-zinc-800/80"
-                >
-                  <div className="text-[11px] font-semibold uppercase tracking-wide text-emerald-200">
-                    {lure.name}
-                  </div>
-                  {lure.role && (
-                    <div className="text-[10px] text-zinc-400">{lure.role}</div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Color Swatches */}
-          <div className="rounded-2xl border border-zinc-800 bg-[#080b11] p-4">
-            <h3 className="text-sm font-medium text-zinc-50">
-              Color priorities
-            </h3>
-            <p className="mt-1 text-[11px] text-zinc-400">
-              Start here based on today&apos;s water color and light.
-            </p>
-
-            <div className="mt-3 flex flex-wrap gap-2">
-              {colorPills.map((c) => (
-                <div
-                  key={c.name}
-                  className="inline-flex items-center gap-2 rounded-full bg-black/60 px-3 py-1 text-[11px] text-zinc-100 ring-1 ring-zinc-700/80"
-                >
-                  <span
-                    className={`h-3 w-3 rounded-full border border-zinc-900/60 ${c.swatchClass}`}
+        {/* LURE GRID */}
+        <section>
+          <h2 className="mb-2 text-sm font-medium text-white">Lure set</h2>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {lures.map((lure) => (
+              <div
+                key={lure.name}
+                className="flex items-center gap-3 rounded-xl bg-[#1B314A]/60 p-3"
+              >
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black/30 text-white/90">
+                  <LureIcon
+                    iconKey={lure.iconKey}
+                    className="h-8 w-8 text-white"
                   />
-                  <span>{c.name}</span>
                 </div>
-              ))}
-            </div>
+                <span className="text-[13px]">{lure.name}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* COLOR SWATCHES */}
+        <section>
+          <h2 className="mb-2 text-sm font-medium text-white">
+            Color priorities
+          </h2>
+          <div className="flex flex-wrap gap-2">
+            {colors.map((c) => (
+              <div
+                key={c.name}
+                className="flex items-center gap-2 rounded-full border border-white/10 px-3 py-1"
+              >
+                <span
+                  className="h-4 w-4 rounded-full border border-white/20"
+                  style={{ backgroundColor: c.hex }}
+                />
+                <span className="text-[12px] text-white/80">{c.name}</span>
+              </div>
+            ))}
           </div>
         </section>
       </main>
     </div>
   );
+}
+
+// ---------- Temporary Vision demo data ----------
+
+const visionPatternDemo: PatternDetail = {
+  phase: "Early Pre-Spawn",
+  depthZone: "Mid-Shallow (4–8 ft)",
+  structure: "Wind-blown grass lines with scattered wood",
+  tier: "vision",
+  technique: {
+    name: "Chatterbait",
+    style: "Power Fishing",
+    iconKey: "chatterbait",
+    bullets: [
+      "Slow-roll along outside grass edges, ticking the tops when you can.",
+      "Change retrieve speed to find the cadence that keeps the blade thumping clean.",
+      "Cast at angles across the grass line to cover more water each pass.",
+    ],
+  },
+  microPattern:
+    "Early pre-spawn bass are holding shallow around grass edges — a great place to start with a moving bait that hunts.",
+  timeline: [
+    {
+      window: "6–9 AM",
+      action: "Cover wind-blown shallow grass with a chatterbait.",
+    },
+    {
+      window: "9–11 AM",
+      action:
+        "Slide to the outside grass edge and first break (6–8 ft) and keep fan-casting.",
+    },
+    {
+      window: "11–2 PM",
+      action:
+        "Target shade pockets, isolated wood, or docks in the same productive stretches.",
+    },
+    {
+      window: "2–5 PM",
+      action:
+        "Revisit high-confidence banks, adjusting angle and retrieve speed to trigger followers.",
+    },
+  ],
+  adjustments: [
+    {
+      label: "If water clarity improves…",
+      guidance:
+        "Go more natural on color (green pumpkin, bluegill, translucent shad) and consider downsizing the profile.",
+    },
+    {
+      label: "If wind dies completely…",
+      guidance:
+        "Mix in a swim jig or finesse swimbait to keep the same targets honest without overpowering flat water.",
+    },
+    {
+      label: "If you see followers but no commits…",
+      guidance:
+        "Speed up the retrieve or add a couple of sharp rod pops mid-cast to create a change-up trigger.",
+    },
+  ],
+  lures: [
+    { name: "Chatterbait", iconKey: "chatterbait" },
+    { name: "Swim Jig", iconKey: "swim_jig" },
+    { name: "Lipless Crank", iconKey: "lipless_crank" }, // falls back to ChatterbaitIcon
+    { name: "Finesse Swimbait", iconKey: "swimbait_soft" }, // falls back as well
+  ],
+  colors: [
+    { name: "Green Pumpkin", hex: "#2f4f2f" },
+    { name: "Black / Blue", hex: "#060814" },
+    { name: "White / Shad", hex: "#e5e7eb" },
+    { name: "Chartreuse Accent", hex: "#e5ff3b" },
+  ],
+};
+
+// ---------- Next.js page wrapper ----------
+
+export default function VisionPatternPage() {
+  return <PatternDetailScreen pattern={visionPatternDemo} />;
 }
