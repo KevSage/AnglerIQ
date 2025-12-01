@@ -1,47 +1,44 @@
-from __future__ import annotations
+# app/api/pattern/vision_tier.py
 
 from typing import Any, Dict
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
 from app.domain.pattern.schemas import ElitePatternRequest, ElitePatternResponse
-from app.domain.pattern.logic_vision import build_vision_tier_pattern
+from app.domain.pattern.context import VisionContext
+from app.domain.pattern.logic_elite import build_elite_pattern
 
 router = APIRouter()
 
 
-@router.post(
-    "/pattern/vision-tier",
-    response_model=ElitePatternResponse,
-)
+@router.post("/pattern/vision-tier", response_model=ElitePatternResponse)
 def pattern_vision_tier(payload: Dict[str, Any]) -> ElitePatternResponse:
     """
-    Vision-tier endpoint.
+    Vision-tier = Elite + Vision fusion.
 
-    Expects payload of the form:
+    Request shape (used by the mobile app / frontend):
 
     {
-      "pattern": { ... fields for ElitePatternRequest ... },
+      "pattern": {
+        ...ElitePatternRequest fields...
+      },
       "vision": {
-        "depth_ft": 12.5,
-        "arch_count": 5,
-        "activity_level": "medium",
-        "bait_present": true,
-        "bottom_hardness": "hard",
-        "stop_or_keep_moving": "stop"
+        ...VisionContext fields (depth_ft, arch_count, activity_level, etc.)...
       }
     }
 
-    All fusion + vision adjustments are handled in the domain layer
-    (logic_vision → build_vision_tier_pattern → build_elite_pattern).
+    Response shape is a standard ElitePatternResponse, with Vision / fusion
+    details exposed inside `conditions`.
     """
+    # Defensive guard for malformed requests
+    if "pattern" not in payload or "vision" not in payload:
+        raise HTTPException(
+            status_code=422,
+            detail="Request body must include 'pattern' and 'vision' objects.",
+        )
 
-    pattern_raw = payload.get("pattern", {})
-    vision_raw = payload.get("vision", {})
+    pattern_req = ElitePatternRequest(**payload["pattern"])
+    vision_req = VisionContext(**payload["vision"])
 
-    elite_req = ElitePatternRequest(**pattern_raw)
-
-    # domain layer handles dict → VisionContext + fusion
-    result = build_vision_tier_pattern(elite_req, vision=vision_raw)
-
-    return result
+    elite_result = build_elite_pattern(pattern_req, vision_ctx=vision_req)
+    return elite_result

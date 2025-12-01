@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import Optional
+from datetime import datetime
 
 from .context import WeatherContext, VisionContext
 
@@ -14,18 +15,26 @@ def build_weather_context(
     cloud_cover: Optional[str] = None,
 ) -> WeatherContext:
     """
-    Convert raw weather input (future API output) into a WeatherContext.
+    Convert raw weather input into a WeatherContext.
 
-    For now, defaults handle the absence of real weather integration:
-      - temp_f:      70°F fallback
-      - wind_mph:    5 mph fallback
-      - cloud_cover: 'partly_cloudy' fallback
+    This keeps the older parameter names (wind_mph, cloud_cover) for
+    backwards compatibility, but maps them onto the new WeatherContext
+    fields (wind_speed, sky_condition).
+
+    Fallbacks when values are not provided:
+      - temp_f:      70°F
+      - wind_mph:    5 mph
+      - cloud_cover: 'partly_cloudy'
     """
+    temp = temp_f if temp_f is not None else 70.0
+    wind_speed = wind_mph if wind_mph is not None else 5.0
+    sky_condition = (cloud_cover or "partly_cloudy")
 
     return WeatherContext(
-        temp_f=temp_f if temp_f is not None else 70.0,
-        wind_mph=wind_mph if wind_mph is not None else 5.0,
-        cloud_cover=(cloud_cover or "partly_cloudy"),
+        temp_f=temp,
+        wind_speed=wind_speed,
+        sky_condition=sky_condition,
+        timestamp=datetime.utcnow(),
     )
 
 
@@ -43,7 +52,8 @@ def build_vision_context(
 ) -> VisionContext:
     """
     Convert raw sonar/vision output into a VisionContext.
-    Defaults match your test stub's semantics.
+    Defaults match your test stub's semantics, but if values are provided
+    they are passed through unchanged.
     """
 
     return VisionContext(

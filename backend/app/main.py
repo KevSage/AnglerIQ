@@ -1,5 +1,5 @@
 # app/main.py
-
+from . import __version__ as APP_VERSION
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -25,9 +25,13 @@ app.add_middleware(
 
 # Simple health check so the frontend (and you) can verify it's up
 @app.get("/health")
-def health():
-    return {"status": "ok"}
+def health() -> dict:
+    """
+    Simple health check used by tests.
 
+    Tests expect *exactly* {"status": "ok"} as the JSON body.
+    """
+    return {"status": "ok"}
 
 # Mount all versioned / structured API routes
 app.include_router(api_router)

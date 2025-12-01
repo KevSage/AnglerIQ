@@ -8,6 +8,8 @@ from app.api.sonar import router as sonar_router
 from app.api.vision import router as vision_router  
 from app.api.debug import router as debug_router  
 from app.api.pattern.vision_tier import router as vision_tier_router
+from app.api.assistant import router as assistant_router
+from app.api.sage import router as sage_router  # <-- NEW
 
 api_router = APIRouter()
 
@@ -19,3 +21,5 @@ api_router.include_router(sonar_router)
 api_router.include_router(vision_router)  
 api_router.include_router(debug_router)  
 api_router.include_router(vision_tier_router)
+api_router.include_router(assistant_router)  
+api_router.include_router(sage_router)  # <-- NEW

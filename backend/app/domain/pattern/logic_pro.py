@@ -1,34 +1,21 @@
-from dataclasses import dataclass
+# app/domain/pattern/logic_pro.py
+
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import os
 import json
+import httpx  # for WeatherAPI HTTP calls
 from urllib.request import urlopen
 from urllib.error import URLError, HTTPError
 
 from .schemas import ProPatternRequest, ProPatternResponse, LureSetup
+from .context import WeatherContext
 
 
 # -----------------------------
 # Weather integration (WeatherAPI)
 # -----------------------------
-
-
-@dataclass
-class WeatherContext:
-    def __init__(
-        self,
-        temp_f: float,
-        wind_speed: float,
-        sky_condition: str,
-        timestamp: datetime,
-    ) -> None:
-        self.temp_f = temp_f
-        self.wind_speed = wind_speed
-        self.sky_condition = sky_condition
-        self.timestamp = timestamp
-
 
 
 def _stub_weather_context() -> WeatherContext:
@@ -117,7 +104,6 @@ def get_weather_for_location(
         return _stub_weather_context()
 
     # 2) Load API key from environment
-    import os
     import logging
 
     api_key = os.getenv("WEATHER_API_KEY")
@@ -255,6 +241,7 @@ def _classify_phase(temp_f: float, month: int) -> str:
 
     return "post-spawn"
 
+
 def _classify_depth_zone(depth_ft: float) -> str:
     """
     Depth-zone classification tuned for largemouth/smallmouth patterns.
@@ -338,6 +325,7 @@ def _build_lure_setups(
 
     return setups
 
+
 def _build_targets_for(
     phase: str,
     depth_zone: str,
@@ -382,6 +370,8 @@ def _build_targets_for(
             seen.add(t)
 
     return unique_targets
+
+
 def _build_strategy_tips(
     phase: str,
     depth_zone: str,
@@ -453,6 +443,7 @@ def _build_strategy_tips(
 
     return tips
 
+
 def build_pro_pattern(req: ProPatternRequest) -> ProPatternResponse:
     """
     Pro pattern builder:
@@ -499,6 +490,7 @@ def build_pro_pattern(req: ProPatternRequest) -> ProPatternResponse:
             depth_zone = "deep"
         else:
             depth_zone = "mid_depth"
+
     # 4. Lures, colors, setups, targets, tips
     recommended_lures, color_recommendations = _pick_lures_and_colors(
         phase=phase,
@@ -514,7 +506,6 @@ def build_pro_pattern(req: ProPatternRequest) -> ProPatternResponse:
         clarity=clarity,
     )
 
-    # Simple placeholders for now; you can wire in your richer logic.
     recommended_targets: List[str] = _build_targets_for(
         phase=phase,
         depth_zone=depth_zone,
@@ -528,7 +519,6 @@ def build_pro_pattern(req: ProPatternRequest) -> ProPatternResponse:
         wind_speed=weather.wind_speed,
         sky_condition=weather.sky_condition,
     )
-
 
     # 5. Conditions snapshot (for UI + debugging + future AI)
     conditions: Dict[str, Any] = {
@@ -563,3 +553,4 @@ def build_pro_pattern(req: ProPatternRequest) -> ProPatternResponse:
         conditions=conditions,
         notes=notes,
     )
+   

@@ -1,22 +1,18 @@
+# app/domain/pattern/context.py
 from dataclasses import dataclass
-from typing import Literal
+from datetime import datetime
+from typing import Optional, Literal
 
 
 @dataclass
 class WeatherContext:
     """
-    Compact representation of the weather / environment signals
-    your pattern engine cares about.
-
-    These can be populated from your weather integration later.
+    Shared weather context used by Pro/Elite/Vision/fusion logic.
     """
     temp_f: float
-    wind_mph: float
-    cloud_cover: Literal["sunny", "partly_cloudy", "overcast"]
-    # Add more when needed:
-    # pressure_trend: Literal["rising", "falling", "stable"] | None = None
-    # recent_rain: bool = False
-    # etc.
+    wind_speed: float
+    sky_condition: str
+    timestamp: datetime
 
 
 @dataclass
