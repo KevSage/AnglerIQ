@@ -6,7 +6,8 @@ import { UserNameProvider } from "./context/UserNameContext";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  // ...your existing metadata...
+  title: "AnglerIQ",
+  description: "Pattern-first bass fishing intelligence",
 };
 
 export default function RootLayout({

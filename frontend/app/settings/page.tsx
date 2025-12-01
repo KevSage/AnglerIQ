@@ -13,7 +13,7 @@ const ALL_PREFERRED_STYLES = [
   "grass",
 ];
 
-// Canonical lure taxonomy groups for confidence baits
+// Canonical lure taxonomy groups for confidence baits + banned techniques
 const LURE_GROUPS: {
   label: string;
   key: string;
@@ -109,6 +109,7 @@ const LURE_GROUPS: {
 
 export default function SettingsPage() {
   const { userName, setUserName } = useUserName();
+  console.log("SettingsPage userName:", userName);
 
   const [darkMode, setDarkMode] = useState(false);
 
@@ -180,7 +181,7 @@ export default function SettingsPage() {
             </p>
           </section>
 
-          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+          <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
             Tune how SAGE talks to you. These settings shape{" "}
             <span className="font-medium">text only</span> &mdash; they do not
             change the underlying Pro/Elite/Vision engines.
@@ -231,7 +232,68 @@ export default function SettingsPage() {
         </section>
 
         {/* Coaching style */}
-        {/* ...rest of your sections unchanged (coaching style, preferred styles, confidence baits, banned techniques, footer)... */}
+        <section className="mt-4 border-t border-zinc-200 pt-4 dark:border-zinc-800">
+          <h2 className="text-sm font-medium text-zinc-800 dark:text-zinc-100">
+            Coaching style
+          </h2>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            Shapes SAGE&apos;s tone: calm, blunt, analytical, hype, or minimal.
+          </p>
+          <select
+            className="mt-2 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+            value={coachingStyle}
+            onChange={(e) => setCoachingStyle(e.target.value as any)}
+          >
+            <option value="agnostic">No preference / Agnostic</option>
+            <option value="calm_guide">Calm guide</option>
+            <option value="old_school_pro">Old school pro</option>
+            <option value="data_analyst">Data analyst</option>
+            <option value="hype_coach">Hype coach</option>
+            <option value="minimalist">Minimalist</option>
+          </select>
+        </section>
+
+        {/* Preferred styles */}
+        <section className="mt-4 border-t border-zinc-200 pt-4 dark:border-zinc-800">
+          <h2 className="text-sm font-medium text-zinc-800 dark:text-zinc-100">
+            Preferred fishing styles
+          </h2>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            SAGE will lean toward these styles in its wording only.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {ALL_PREFERRED_STYLES.map((style) => {
+              const active = preferredStyles.includes(style);
+              return (
+                <button
+                  key={style}
+                  type="button"
+                  onClick={() => togglePreferredStyle(style)}
+                  className={`rounded-full border px-3 py-1 text-xs capitalize transition ${
+                    active
+                      ? "border-blue-600 bg-blue-600 text-white shadow-sm"
+                      : "border-zinc-300 bg-zinc-50 text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
+                  }`}
+                >
+                  {style}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* Confidence baits (same structure you already had) */}
+        {/* ... keep your confidence-baits and banned-techniques sections here unchanged ... */}
+
+        <footer className="mt-6">
+          <button
+            type="button"
+            onClick={handleSaveLocal}
+            className="flex w-full items-center justify-center rounded-md bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800"
+          >
+            Save settings (local only)
+          </button>
+        </footer>
       </main>
     </div>
   );
