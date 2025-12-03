@@ -1,11 +1,11 @@
+// app/context/UserNameContext.tsx
 "use client";
 
 import React, {
   createContext,
   useContext,
   useState,
-  ReactNode,
-  useMemo,
+  type ReactNode,
 } from "react";
 
 type UserNameContextValue = {
@@ -20,16 +20,8 @@ const UserNameContext = createContext<UserNameContextValue | undefined>(
 export function UserNameProvider({ children }: { children: ReactNode }) {
   const [userName, setUserName] = useState<string | null>(null);
 
-  const value = useMemo(
-    () => ({
-      userName,
-      setUserName,
-    }),
-    [userName]
-  );
-
   return (
-    <UserNameContext.Provider value={value}>
+    <UserNameContext.Provider value={{ userName, setUserName }}>
       {children}
     </UserNameContext.Provider>
   );
