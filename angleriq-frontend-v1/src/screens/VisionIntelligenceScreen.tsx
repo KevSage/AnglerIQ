@@ -1,321 +1,280 @@
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTier } from "../hooks/useTier";
-import {
-  usePattern,
-  type PatternResponse,
-  type SurfaceBlock,
-  type SonarBlock,
-  type VisionAnalysisBlock,
-  type VisionApproachBlock,
-} from "../hooks/usePattern";
-import { useOnboardingGuard } from "../hooks/useOnboardingGuard";
+import { usePattern } from "../hooks/usePattern";
 import ScreenContainer from "../components/layout/ScreenContainer";
 
-const VisionIntelligenceScreen: React.FC = () => {
-  useOnboardingGuard();
+const VisionIntelligenceScreen = () => {
+  const { tier } = useTier();
   const navigate = useNavigate();
-  const { tier } = useTier(); // "pro" | "elite" | "vision"
+
   const { pattern, loading, error } = usePattern(tier);
 
-  const isVision = tier === "vision";
-
-  // Hard gate: non-Vision tiers should not see this screen
+  // Hard gate: /vision must be Vision tier only
   useEffect(() => {
-    if (!isVision) {
+    if (tier !== "vision") {
       navigate("/", { replace: true });
     }
-  }, [isVision, navigate]);
+  }, [tier, navigate]);
 
-  if (!isVision) {
-    // Prevent flicker for Pro/Elite while redirecting
+  if (tier !== "vision") {
+    // Safeguard render (should be immediately redirected)
     return null;
   }
 
+  const vision = pattern?.vision;
+  const surface = vision?.surface_enhanced;
+  const sonar = vision?.sonar_enhanced;
+  const fusedAnalysis = vision?.vision_enhanced_analysis;
+  const fusedApproach = vision?.vision_enhanced_approach;
+
+  const hasSurface = Boolean(surface);
+  const hasSonar = Boolean(sonar);
+  const hasAnyVisionInput = hasSurface || hasSonar;
+  const hasFusion = hasSurface && hasSonar && Boolean(fusedAnalysis);
+
+  // Simple confidence meter based on area_confidence text (Vision only)
+  const deriveConfidenceLevel = (): "low" | "medium" | "high" => {
+    const text = fusedAnalysis?.area_confidence?.toLowerCase() || "";
+    if (text.includes("high")) return "high";
+    if (text.includes("low")) return "low";
+    return "medium";
+  };
+
+  const confidenceLevel = deriveConfidenceLevel();
+
+  // Loading state (canonical tone)
   if (loading) {
     return (
-      <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4">
-        <div className="rounded-xl border border-slate-800 bg-slate-900/80 px-4 py-3 text-sm text-slate-300">
-          Interpreting today’s conditions…
+      <ScreenContainer>
+        <div className="flex min-h-[60vh] flex-col items-center justify-center text-center text-xs text-gray-300">
+          <p className="mb-2 animate-pulse">
+            Interpreting today&apos;s conditions…
+          </p>
         </div>
-      </div>
+      </ScreenContainer>
     );
   }
 
+  // Error state (canonical error copy)
   if (error) {
     return (
-      <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4">
-        <div className="space-y-3 rounded-xl border border-red-800/60 bg-slate-900/80 p-4 text-sm text-slate-200">
-          <p>Something went wrong while interpreting conditions. Try again.</p>
+      <ScreenContainer>
+        <div className="mt-6 rounded-2xl border border-red-500/40 bg-red-900/10 px-4 py-3 text-xs text-red-200">
+          <p className="font-medium">
+            Something went wrong while interpreting conditions. Try again.
+          </p>
         </div>
-      </div>
+      </ScreenContainer>
     );
   }
 
-  if (!pattern) {
+  // Empty state when no surface or sonar data (FAC)
+  if (!hasAnyVisionInput) {
     return (
-      <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4">
-        <div className="rounded-xl border border-slate-800 bg-slate-900/80 px-4 py-3 text-sm text-slate-300">
-          Pattern-of-the-Moment is not available right now.
-        </div>
-      </div>
-    );
-  }
-
-  const p = pattern as PatternResponse;
-  const vision = p.vision;
-
-  const surface: SurfaceBlock | undefined = vision?.surface_enhanced;
-  const sonar: SonarBlock | undefined = vision?.sonar_enhanced;
-  const analysis: VisionAnalysisBlock | undefined =
-    vision?.vision_enhanced_analysis;
-  const approach: VisionApproachBlock | undefined =
-    vision?.vision_enhanced_approach;
-
-  const hasSurface = !!surface;
-  const hasSonar = !!sonar;
-  const hasAnalysis = !!analysis;
-  const hasApproach = !!approach;
-
-  const hasAnyVisionBlocks =
-    hasSurface || hasSonar || hasAnalysis || hasApproach;
-
-  // Canon empty state when no surface/sonar
-  if (!hasAnyVisionBlocks || (!hasSurface && !hasSonar)) {
-    return (
-      <div className="min-h-[calc(100vh-4rem)] px-4 py-4">
-        <header className="mb-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-base font-semibold text-slate-100">
-              Vision Intelligence Screen
-            </h1>
-            <p className="mt-1 text-xs text-slate-400">
-              Environmental Understanding — Elevated.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => navigate("/")}
-            className="rounded-full border border-slate-700 bg-slate-950 px-3 py-1 text-xs font-medium text-slate-200"
-          >
-            Back to Home
-          </button>
+      <ScreenContainer>
+        <header className="mb-4">
+          <h1 className="text-lg font-semibold text-gray-100">
+            Vision Intelligence Screen
+          </h1>
+          <p className="mt-1 text-xs text-gray-400">
+            Environmental Understanding — Elevated.
+          </p>
         </header>
 
-        <section className="mt-6 rounded-2xl border border-slate-800 bg-slate-950/80 p-4 text-sm text-slate-200">
+        <main className="mt-8 space-y-3 text-xs text-gray-300">
           <p>No sonar or surface images yet.</p>
-          <p className="mt-1 text-xs text-slate-400">
+          <p>
             Upload a photo or sonar screenshot to activate Vision Enhanced
             interpretation.
           </p>
-        </section>
-      </div>
+        </main>
+      </ScreenContainer>
     );
   }
 
   return (
     <ScreenContainer>
-      {/* Header */}
-      <header className="mb-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-base font-semibold text-slate-100">
-            Vision Intelligence Screen
-          </h1>
-          <p className="mt-1 text-xs text-slate-400">
-            Environmental Understanding — Elevated.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => navigate("/")}
-          className="rounded-full border border-slate-700 bg-slate-950 px-3 py-1 text-xs font-medium text-slate-200"
-        >
-          Back to Home
-        </button>
+      {/* Header + Tagline */}
+      <header className="mb-4">
+        <h1 className="text-lg font-semibold text-gray-100">
+          Vision Intelligence Screen
+        </h1>
+        <p className="mt-1 text-xs text-gray-400">
+          Environmental Understanding — Elevated.
+        </p>
       </header>
 
-      <div className="space-y-4">
+      {/* Optional confidence meter (Vision only, subtle) */}
+      {hasFusion && (
+        <section className="mb-4 rounded-2xl border border-gray-700/70 bg-black/40 px-4 py-3">
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] font-medium text-gray-200">
+              Area Confidence
+            </p>
+            <p className="text-[11px] text-gray-400">
+              {fusedAnalysis?.area_confidence || "—"}
+            </p>
+          </div>
+          <div className="mt-2 flex gap-1">
+            <span
+              className={
+                "h-1.5 flex-1 rounded-full " +
+                (confidenceLevel === "low" ||
+                confidenceLevel === "medium" ||
+                confidenceLevel === "high"
+                  ? "bg-emerald-400/80"
+                  : "bg-gray-700")
+              }
+            />
+            <span
+              className={
+                "h-1.5 flex-1 rounded-full " +
+                (confidenceLevel === "medium" || confidenceLevel === "high"
+                  ? "bg-emerald-400/60"
+                  : "bg-gray-800")
+              }
+            />
+            <span
+              className={
+                "h-1.5 flex-1 rounded-full " +
+                (confidenceLevel === "high"
+                  ? "bg-emerald-400/40"
+                  : "bg-gray-900")
+              }
+            />
+          </div>
+        </section>
+      )}
+
+      <main className="space-y-4 text-xs text-gray-200">
         {/* 1) Surface Enhanced */}
         {hasSurface && (
-          <section className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4">
-            <div className="mb-2 flex items-center justify-between">
-              <p className="text-sm font-semibold text-slate-100">
+          <section className="rounded-2xl border border-gray-700/70 bg-black/40 px-4 py-3">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <h2 className="text-[13px] font-semibold text-gray-100">
                 Surface Enhanced
-              </p>
-              <span className="rounded-full border border-slate-700 bg-slate-900 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-300">
+              </h2>
+              <span className="rounded-full border border-emerald-500/60 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
                 Surface Enhanced
               </span>
             </div>
-            <div className="mt-2 grid grid-cols-1 gap-2 text-xs text-slate-200">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                  Visible Structure
-                </p>
-                <p className="mt-1">{surface?.visible_structure}</p>
-              </div>
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                  Cover Density
-                </p>
-                <p className="mt-1">{surface?.cover_density}</p>
-              </div>
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                  Clarity Cues
-                </p>
-                <p className="mt-1">{surface?.clarity_cues}</p>
-              </div>
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                  Shade Lanes
-                </p>
-                <p className="mt-1">{surface?.shade_lanes}</p>
-              </div>
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                  Vegetation Type
-                </p>
-                <p className="mt-1">{surface?.vegetation_type}</p>
-              </div>
+            <div className="space-y-1.5">
+              <Row
+                label="Visible Structure"
+                value={surface?.visible_structure}
+              />
+              <Row label="Cover Density" value={surface?.cover_density} />
+              <Row label="Clarity Cues" value={surface?.clarity_cues} />
+              <Row label="Shade Lanes" value={surface?.shade_lanes} />
+              <Row label="Vegetation Type" value={surface?.vegetation_type} />
             </div>
           </section>
         )}
 
         {/* 2) Sonar Enhanced */}
         {hasSonar && (
-          <section className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4">
-            <div className="mb-2 flex items-center justify-between">
-              <p className="text-sm font-semibold text-slate-100">
+          <section className="rounded-2xl border border-gray-700/70 bg-black/40 px-4 py-3">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <h2 className="text-[13px] font-semibold text-gray-100">
                 Sonar Enhanced
-              </p>
-              <span className="rounded-full border border-slate-700 bg-slate-900 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-300">
+              </h2>
+              <span className="rounded-full border border-emerald-500/60 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
                 Sonar Enhanced
               </span>
             </div>
-            <div className="mt-2 grid grid-cols-1 gap-2 text-xs text-slate-200">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                  Depth Bands
-                </p>
-                <p className="mt-1">{sonar?.depth_bands}</p>
-              </div>
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                  Bottom Hardness
-                </p>
-                <p className="mt-1">{sonar?.bottom_hardness}</p>
-              </div>
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                  Bait Presence
-                </p>
-                <p className="mt-1">{sonar?.bait_presence}</p>
-              </div>
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                  Arch Count
-                </p>
-                <p className="mt-1">{sonar?.arch_count}</p>
-              </div>
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                  Activity Level
-                </p>
-                <p className="mt-1">{sonar?.activity_level}</p>
-              </div>
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                  Should You Keep Moving?
-                </p>
-                <p className="mt-1">{sonar?.should_you_keep_moving}</p>
-              </div>
+            <div className="space-y-1.5">
+              <Row label="Depth Bands" value={sonar?.depth_bands} />
+              <Row label="Bottom Hardness" value={sonar?.bottom_hardness} />
+              <Row label="Bait Presence" value={sonar?.bait_presence} />
+              <Row label="Arch Count" value={sonar?.arch_count} />
+              <Row label="Activity Level" value={sonar?.activity_level} />
+              <Row
+                label="Should You Keep Moving?"
+                value={sonar?.should_you_keep_moving}
+              />
             </div>
           </section>
         )}
 
-        {/* 3) Vision Enhanced Analysis */}
-        {hasAnalysis && (
-          <section className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4">
-            <div className="mb-2 flex items-center justify-between">
-              <p className="text-sm font-semibold text-slate-100">
+        {/* 3) Vision Enhanced Analysis (only when fused) */}
+        {hasFusion && fusedAnalysis && (
+          <section className="rounded-2xl border border-gray-700/70 bg-black/50 px-4 py-3">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <h2 className="text-[13px] font-semibold text-gray-100">
                 Vision Enhanced Analysis
-              </p>
-              <span className="rounded-full border border-emerald-500/70 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-200">
+              </h2>
+              <span className="rounded-full border border-emerald-500/60 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
                 Vision Enhanced
               </span>
             </div>
-            <div className="mt-2 grid grid-cols-1 gap-2 text-xs text-slate-200">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                  Area Confidence
-                </p>
-                <p className="mt-1">{analysis?.area_confidence}</p>
-              </div>
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                  Quality Zone
-                </p>
-                <p className="mt-1">{analysis?.quality_zone}</p>
-              </div>
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                  Movement Logic
-                </p>
-                <p className="mt-1">{analysis?.movement_logic}</p>
-              </div>
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                  Environmental Interpretation
-                </p>
-                <p className="mt-1">{analysis?.environmental_interpretation}</p>
-              </div>
+            <div className="space-y-1.5">
+              <Row
+                label="Area Confidence"
+                value={fusedAnalysis.area_confidence}
+              />
+              <Row label="Quality Zone" value={fusedAnalysis.quality_zone} />
+              <Row
+                label="Movement Logic"
+                value={fusedAnalysis.movement_logic}
+              />
+              <Row
+                label="Environmental Interpretation"
+                value={fusedAnalysis.environmental_interpretation}
+              />
             </div>
           </section>
         )}
 
         {/* 4) Vision Enhanced Approach (conditional) */}
-        {hasApproach && (
-          <section className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4">
-            <div className="mb-2 flex items-center justify-between">
-              <p className="text-sm font-semibold text-slate-100">
+        {hasFusion && fusedApproach && (
+          <section className="rounded-2xl border border-gray-700/70 bg-black/50 px-4 py-3">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <h2 className="text-[13px] font-semibold text-gray-100">
                 Vision Enhanced Approach
-              </p>
-              <span className="rounded-full border border-emerald-500/70 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-200">
+              </h2>
+              <span className="rounded-full border border-emerald-500/60 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
                 Vision Enhanced
               </span>
             </div>
-            <div className="mt-2 grid grid-cols-1 gap-2 text-xs text-slate-200">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                  Updated Technique Focus
-                </p>
-                <p className="mt-1">{approach?.updated_technique_focus}</p>
-              </div>
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                  Updated Depth Expectation
-                </p>
-                <p className="mt-1">{approach?.updated_depth_expectation}</p>
-              </div>
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                  Updated Movement Strategy
-                </p>
-                <p className="mt-1">{approach?.updated_movement_strategy}</p>
-              </div>
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                  Why Vision Adjusted the Approach
-                </p>
-                <p className="mt-1">
-                  {approach?.why_vision_adjusted_the_approach}
-                </p>
-              </div>
+            <div className="space-y-1.5">
+              <Row
+                label="Updated Technique Focus"
+                value={fusedApproach.updated_technique_focus}
+              />
+              <Row
+                label="Updated Depth Expectation"
+                value={fusedApproach.updated_depth_expectation}
+              />
+              <Row
+                label="Updated Movement Strategy"
+                value={fusedApproach.updated_movement_strategy}
+              />
+              <Row
+                label="Why Vision Adjusted the Approach"
+                value={fusedApproach.why_vision_adjusted_the_approach}
+              />
             </div>
           </section>
         )}
-      </div>
+      </main>
     </ScreenContainer>
+  );
+};
+
+type RowProps = {
+  label: string;
+  value?: string;
+};
+
+const Row = ({ label, value }: RowProps) => {
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <span className="w-[45%] text-[11px] font-medium text-gray-400">
+        {label}
+      </span>
+      <span className="flex-1 text-[11px] text-gray-100">{value || "—"}</span>
+    </div>
   );
 };
 
