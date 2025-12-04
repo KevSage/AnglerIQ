@@ -1,108 +1,115 @@
 import { useTier } from "../hooks/useTier";
 import { usePattern } from "../hooks/usePattern";
+import { useOnboardingGuard } from "../hooks/useOnboardingGuard";
 
 const PatternIntelScreen = () => {
+  useOnboardingGuard();
   const { tier } = useTier();
   const { pattern, loading, error } = usePattern(tier);
 
-  const hasGameplan = !!pattern?.gameplan && pattern.gameplan.length > 0;
-  const hasAdjustments =
-    !!pattern?.adjustments && pattern.adjustments.length > 0;
+  if (loading) {
+    return (
+      <div className="p-4 text-xs text-gray-300">
+        Loading Pattern Intelligence…
+      </div>
+    );
+  }
+
+  if (error || !pattern) {
+    return (
+      <div className="p-4 text-xs text-red-400">
+        Something went wrong while interpreting conditions. Try again.
+      </div>
+    );
+  }
+
+  const isEliteOrVision = tier === "elite" || tier === "vision";
 
   return (
     <div className="min-h-screen px-4 py-4 text-gray-100">
-      <header className="mb-4">
-        <h1 className="text-lg font-semibold">Pattern Intelligence</h1>
-      </header>
+      {/* Header */}
+      <h1 className="text-lg font-semibold">Pattern Intelligence</h1>
 
-      <main className="space-y-4 text-xs">
-        {/* Error */}
-        {error && (
-          <section className="rounded-xl border border-red-500 bg-red-900/30 p-3 text-red-200">
-            Something went wrong while interpreting conditions. Try again.
-          </section>
-        )}
+      <div className="mt-6 space-y-10 text-xs">
+        {/* GAMEPLAN TIMELINE — Elite + Vision only */}
+        {isEliteOrVision && pattern.gameplan && (
+          <section>
+            <h2 className="text-sm font-semibold mb-3">Gameplan Timeline</h2>
 
-        {/* Gameplan Timeline (Elite + Vision only) */}
-        {tier !== "pro" && hasGameplan && (
-          <section className="space-y-2 rounded-xl border border-gray-700 bg-black/40 p-3">
-            <h2 className="text-sm font-medium text-gray-100">
-              Gameplan Timeline
-            </h2>
-            <div className="space-y-2">
-              {pattern?.gameplan?.map((block) => (
+            <div className="space-y-3">
+              {pattern.gameplan.map((block, index) => (
                 <div
-                  key={block.label}
-                  className="rounded-lg border border-gray-700 p-2"
+                  key={index}
+                  className="rounded-lg border border-gray-700 p-3 bg-gray-800/40"
                 >
-                  <div className="text-[11px] font-semibold text-gray-100">
-                    {block.label}
-                  </div>
-                  <div className="mt-1 text-[11px] text-gray-300">
-                    {block.description}
-                  </div>
+                  <p className="font-medium text-gray-200">{block.label}</p>
+                  <p className="mt-1 text-gray-400">{block.description}</p>
                 </div>
               ))}
             </div>
           </section>
         )}
 
-        {/* Adjustments (Elite + Vision only) */}
-        {tier !== "pro" && hasAdjustments && (
-          <section className="space-y-2 rounded-xl border border-gray-700 bg-black/40 p-3">
-            <h2 className="text-sm font-medium text-gray-100">Adjustments</h2>
-            <div className="space-y-2">
-              {pattern?.adjustments?.map((adj) => (
+        {/* ADJUSTMENTS — Elite + Vision only */}
+        {isEliteOrVision && pattern.adjustments && (
+          <section>
+            <h2 className="text-sm font-semibold mb-3">Adjustments</h2>
+
+            <div className="space-y-3">
+              {pattern.adjustments.map((adj, index) => (
                 <div
-                  key={adj.trigger}
-                  className="rounded-lg border border-gray-700 p-2"
+                  key={index}
+                  className="rounded-lg border border-gray-700 p-3 bg-gray-800/40"
                 >
-                  <div className="text-[11px] font-semibold text-gray-100">
-                    Trigger
-                  </div>
-                  <div className="text-[11px] text-gray-300">{adj.trigger}</div>
-                  <div className="mt-1 text-[11px] font-semibold text-gray-100">
-                    Adjustment
-                  </div>
-                  <div className="text-[11px] text-gray-300">
+                  <p className="text-gray-300">
+                    <span className="font-medium">Trigger: </span>
+                    {adj.trigger}
+                  </p>
+                  <p className="text-gray-300 mt-1">
+                    <span className="font-medium">Adjustment: </span>
                     {adj.adjustment}
-                  </div>
-                  <div className="mt-1 text-[11px] font-semibold text-gray-100">
-                    Why It Works
-                  </div>
-                  <div className="text-[11px] text-gray-300">
+                  </p>
+                  <p className="text-gray-400 mt-1 italic">
                     {adj.why_it_works}
-                  </div>
+                  </p>
                 </div>
               ))}
             </div>
           </section>
         )}
 
-        {/* Techniques Grid */}
-        <section className="space-y-2 rounded-xl border border-gray-700 bg-black/40 p-3">
-          <h2 className="text-sm font-medium text-gray-100">
-            Techniques for Today
-          </h2>
-          <div className="space-y-1 text-[11px] text-gray-300">
-            <div>
-              <span className="font-semibold">Primary Technique: </span>
-              {pattern?.technique || "—"}
-            </div>
-            {/* Later we can extend this with secondary options + color variations */}
+        {/* TECHNIQUES GRID (always shown) */}
+        <section>
+          <h2 className="text-sm font-semibold mb-3">Techniques for Today</h2>
+
+          <div className="rounded-lg border border-gray-700 p-3 bg-gray-800/40">
+            <p className="font-medium text-gray-200">
+              Primary Technique: {pattern.technique}
+            </p>
+
+            {/* Optional secondary suggestions from pattern? */}
+            {pattern.supporting_lures?.length > 0 && (
+              <div className="mt-3">
+                <p className="font-medium text-gray-300">Secondary Options:</p>
+                <ul className="mt-1 space-y-1 list-disc pl-4 text-gray-400">
+                  {pattern.supporting_lures.map((lure, index) => (
+                    <li key={index}>{lure}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         </section>
 
-        {/* Depth Zone Overview */}
-        <section className="space-y-2 rounded-xl border border-gray-700 bg-black/40 p-3">
-          <h2 className="text-sm font-medium text-gray-100">
-            Depth Zone Overview
-          </h2>
-          <div className="text-[11px] text-gray-300">
-            {pattern?.depth_zone || "—"}
+        {/* DEPTH ZONE OVERVIEW */}
+        <section>
+          <h2 className="text-sm font-semibold mb-3">Depth Zone Overview</h2>
+
+          <div className="rounded-lg border border-gray-700 p-3 bg-gray-800/40">
+            <p className="text-gray-300">{pattern.depth_zone}</p>
           </div>
         </section>
-      </main>
+      </div>
     </div>
   );
 };

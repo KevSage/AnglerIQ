@@ -3,8 +3,10 @@ import CoachingStyleSelect from "../components/controlCenter/CoachingStyleSelect
 import PreferredStylesGrid from "../components/controlCenter/PreferredStylesGrid";
 import ConfidenceSpectrumEditor from "../components/controlCenter/ConfidenceSpectrumEditor";
 import DarkModeToggle from "../components/controlCenter/DarkModeToggle";
+import { useOnboardingGuard } from "../hooks/useOnboardingGuard";
 
 const ControlCenterScreen = () => {
+  useOnboardingGuard();
   return (
     <div className="min-h-screen px-4 py-4">
       <header className="mb-4">

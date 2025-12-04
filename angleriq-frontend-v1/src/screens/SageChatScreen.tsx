@@ -1,214 +1,285 @@
-import { FormEvent, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTier } from "../hooks/useTier";
-import { usePattern } from "../hooks/usePattern";
-import {
-  sendSageMessage,
-  type SageChatRequest,
-  type SagePreferences,
-} from "../api/sage";
+import { usePattern, type PatternResponse } from "../hooks/usePattern";
+import { useSageChat } from "../hooks/useSageChat";
+import { useOnboardingGuard } from "../hooks/useOnboardingGuard";
 
-type ChatMessage = {
-  id: number;
-  from: "user" | "sage" | "system";
-  text: string;
-};
-
-const SageChatScreen = () => {
-  const { tier } = useTier();
-  const { pattern } = usePattern(tier);
+const SageChatScreen: React.FC = () => {
+  useOnboardingGuard();
   const navigate = useNavigate();
+  const { tier } = useTier();
+  const { pattern, loading, error } = usePattern(tier);
+  const {
+    messages,
+    sending,
+    error: chatError,
+    sendMessage,
+    clearChat,
+  } = useSageChat();
 
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const buildDefaultPreferences = (): SagePreferences => {
-    // TEMP: default preferences until wired to Control Center
-    return {
-      experience_level: "general",
-      coaching_style: "calm_guide",
-      preferred_styles: [],
-      high_confidence_baits: [],
-      low_confidence_baits: [],
-    };
-  };
+  const isVision = tier === "vision";
 
-  const buildSageRequest = (message: string): SageChatRequest => {
-    const preferences = buildDefaultPreferences();
+  const hasVisionAnalysis = useMemo(() => {
+    if (!pattern) return false;
+    const p = pattern as PatternResponse;
+    return !!p.vision?.vision_enhanced_analysis;
+  }, [pattern]);
 
-    const patternContext = pattern
-      ? {
-          phase: pattern.conditions?.season_phase,
-          depth_zone: pattern.depth_zone,
-          tier: pattern.tier,
-          conditions: pattern.conditions as Record<string, unknown>,
-        }
-      : undefined;
+  // Loading state
+  if (loading) {
+    return (
+      <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4">
+        <div className="rounded-xl border border-slate-800 bg-slate-900/80 px-4 py-3 text-sm text-slate-300">
+          Interpreting your Pattern-of-the-Moment…
+        </div>
+      </div>
+    );
+  }
 
-    const visionContext =
-      tier === "vision" && pattern?.vision
-        ? {
-            surface_enhanced: pattern.vision.surface_enhanced,
-            sonar_enhanced: pattern.vision.sonar_enhanced,
-            vision_enhanced_analysis: pattern.vision.vision_enhanced_analysis,
-          }
-        : undefined;
+  // Error / missing pattern
+  if (error || !pattern) {
+    return (
+      <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4">
+        <div className="space-y-3 rounded-xl border border-red-800/60 bg-slate-900/80 p-4 text-sm text-slate-200">
+          <p>Something went wrong while interpreting conditions. Try again.</p>
+        </div>
+      </div>
+    );
+  }
 
-    return {
-      message,
+  const p = pattern as PatternResponse;
+
+  // Preferences from localStorage (Control Center)
+  const experienceLevel =
+    (localStorage.getItem("aiq_experience_level") as
+      | "general"
+      | "beginner"
+      | "intermediate"
+      | "advanced"
+      | null) ?? "general";
+
+  const coachingStyle =
+    (localStorage.getItem("aiq_coaching_style") as
+      | "Calm Guide"
+      | "Old School Pro"
+      | "Data Analyst"
+      | "Hype Coach"
+      | "Minimalist"
+      | null) ?? "Calm Guide";
+
+  const preferredStylesRaw =
+    localStorage.getItem("aiq_preferred_styles") ?? "[]";
+  const highConfidenceRaw =
+    localStorage.getItem("aiq_high_confidence_baits") ?? "[]";
+  const lowConfidenceRaw =
+    localStorage.getItem("aiq_low_confidence_baits") ?? "[]";
+
+  let preferredStyles: string[] = [];
+  let highConfidenceBaits: string[] = [];
+  let lowConfidenceBaits: string[] = [];
+
+  try {
+    preferredStyles = JSON.parse(preferredStylesRaw);
+  } catch {
+    preferredStyles = [];
+  }
+  try {
+    highConfidenceBaits = JSON.parse(highConfidenceRaw);
+  } catch {
+    highConfidenceBaits = [];
+  }
+  try {
+    lowConfidenceBaits = JSON.parse(lowConfidenceRaw);
+  } catch {
+    lowConfidenceBaits = [];
+  }
+
+  const handleSend = async () => {
+    const text = input.trim();
+    if (!text) return;
+
+    const payload = {
+      message: text,
       context: {
-        ...(patternContext ? { pattern: patternContext } : {}),
-        ...(visionContext ? { vision: visionContext } : {}),
+        pattern: {
+          tier,
+          pattern_of_the_moment: p.pattern_of_the_moment,
+          technique: p.technique,
+          depth_zone: p.depth_zone,
+          conditions: p.conditions,
+        },
+        vision: p.vision ?? undefined,
       },
-      preferences,
-    };
-  };
-
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    const trimmed = input.trim();
-    if (!trimmed || sending) return;
-
-    setError(null);
-
-    const nextId = messages.length ? messages[messages.length - 1].id + 1 : 1;
-
-    const userMessage: ChatMessage = {
-      id: nextId,
-      from: "user",
-      text: trimmed,
+      preferences: {
+        experience_level: experienceLevel,
+        coaching_style: coachingStyle,
+        preferred_styles: preferredStyles,
+        high_confidence_baits: highConfidenceBaits,
+        low_confidence_baits: lowConfidenceBaits,
+      },
     };
 
-    setMessages((prev) => [...prev, userMessage]);
+    await sendMessage(text, payload);
     setInput("");
-    setSending(true);
-
-    try {
-      const req = buildSageRequest(trimmed);
-      const response = await sendSageMessage(req);
-
-      const sageMessage: ChatMessage = {
-        id: nextId + 1,
-        from: "sage",
-        text: response.reply,
-      };
-
-      setMessages((prev) => [...prev, sageMessage]);
-    } catch {
-      setError(
-        "Something went wrong while interpreting conditions. Try again."
-      );
-
-      const systemMessage: ChatMessage = {
-        id: nextId + 1,
-        from: "system",
-        text: "Unable to get a reply from SAGE right now.",
-      };
-
-      setMessages((prev) => [...prev, systemMessage]);
-    } finally {
-      setSending(false);
-    }
   };
 
-  const handleClear = () => {
-    setMessages([]);
-    setError(null);
+  const handleKeyDown: React.KeyboardEventHandler<HTMLTextAreaElement> = (
+    e
+  ) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      void handleSend();
+    }
   };
 
   const handleChangeSettings = () => {
     navigate("/control-center");
   };
 
-  const showVisionSubheader = tier === "vision" && !!pattern?.vision;
+  const tierLabel =
+    tier === "pro"
+      ? "Pro Tier"
+      : tier === "elite"
+      ? "Elite Tier"
+      : "Vision Tier";
+
+  const patternTechnique = p.technique || p.pattern_of_the_moment || "—";
+  const depthZoneLabel = p.depth_zone ?? "—";
 
   return (
-    <div className="flex min-h-screen flex-col px-4 py-4 text-gray-100">
+    <div className="flex min-h-[calc(100vh-4rem)] flex-col px-4 py-4">
       {/* Header */}
-      <header className="mb-3">
-        <h1 className="text-lg font-semibold">SAGE</h1>
-        {showVisionSubheader && (
-          <p className="text-xs text-gray-400">
-            Vision Enhanced Analysis Active
-          </p>
-        )}
-      </header>
-
-      {/* Error banner (canon copy) */}
-      {error && (
-        <section className="mb-2 rounded-xl border border-red-500 bg-red-900/30 p-3 text-xs text-red-200">
-          {error}
-        </section>
-      )}
-
-      {/* Chat area */}
-      <main className="flex flex-1 flex-col rounded-xl border border-gray-700 bg-black/40 p-3 text-xs">
-        <div className="mb-2 flex justify-between gap-2">
-          <button
-            type="button"
-            onClick={handleClear}
-            className="rounded-full border border-gray-600 px-3 py-1 text-[11px] text-gray-100"
-          >
-            Clear Chat
-          </button>
-          <button
-            type="button"
-            onClick={handleChangeSettings}
-            className="rounded-full border border-gray-600 px-3 py-1 text-[11px] text-gray-100"
-          >
-            Change Settings
-          </button>
-        </div>
-
-        <div className="flex-1 space-y-2 overflow-y-auto rounded-lg border border-gray-800 bg-black/30 p-2">
-          {messages.length === 0 && (
-            <p className="text-[11px] text-gray-400">
-              Ask SAGE anything about today’s conditions or your approach.
+      <header className="mb-3 flex items-center justify-between">
+        <div>
+          <h1 className="text-base font-semibold text-slate-100">SAGE</h1>
+          {isVision && hasVisionAnalysis && (
+            <p className="mt-1 text-xs text-slate-400">
+              Vision Enhanced Analysis Active
             </p>
           )}
+        </div>
+        <button
+          type="button"
+          onClick={() => navigate("/")}
+          className="rounded-full border border-slate-700 bg-slate-950 px-3 py-1 text-xs font-medium text-slate-200"
+        >
+          Back to Home
+        </button>
+      </header>
 
-          {messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`max-w-[80%] rounded-lg px-3 py-2 text-[11px] ${
-                msg.from === "user"
-                  ? "ml-auto bg-green-500 text-black"
-                  : msg.from === "sage"
-                  ? "mr-auto bg-gray-800 text-gray-100"
-                  : "mx-auto bg-red-900/50 text-red-100"
-              }`}
-            >
-              {msg.text}
-            </div>
-          ))}
-
-          {sending && (
-            <div className="mr-auto max-w-[60%] rounded-lg bg-gray-800 px-3 py-2 text-[11px] text-gray-300">
-              Interpreting your Pattern-of-the-Moment…
-            </div>
-          )}
+      {/* Context panel */}
+      <section className="mb-3 rounded-2xl border border-slate-800 bg-slate-950/80 p-3 text-[11px] text-slate-200">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-200">
+            {tierLabel}
+          </span>
+          <span className="text-[10px] text-slate-400">
+            Experience Level: {experienceLevel}
+          </span>
         </div>
 
-        {/* Input */}
-        <form onSubmit={handleSubmit} className="mt-3 flex gap-2">
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask SAGE about your approach..."
-            className="flex-1 rounded-full border border-gray-700 bg-black/60 px-3 py-2 text-[11px] text-gray-100 outline-none placeholder:text-gray-500"
-          />
-          <button
-            type="submit"
-            disabled={sending}
-            className="rounded-full border border-green-400 bg-green-400 px-3 py-2 text-[11px] font-medium text-black disabled:opacity-60"
+        <div className="mt-1 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+              Pattern-of-the-Moment
+            </p>
+            <p className="mt-1 text-[11px] text-slate-100">
+              {patternTechnique}
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+              Depth Zone
+            </p>
+            <p className="mt-1 text-[11px] text-slate-100">{depthZoneLabel}</p>
+          </div>
+        </div>
+      </section>
+
+      {/* Chat area */}
+      <main className="flex-1 space-y-2 overflow-y-auto rounded-2xl border border-slate-800 bg-slate-950/80 p-3 text-xs text-slate-100">
+        {messages.length === 0 && (
+          <p className="text-slate-400">
+            Ask SAGE anything about today’s conditions or your approach.
+          </p>
+        )}
+
+        {messages.map((m) => (
+          <div
+            key={m.id}
+            className={`flex ${
+              m.from === "user" ? "justify-end" : "justify-start"
+            }`}
           >
-            Send
-          </button>
-        </form>
+            <div
+              className={[
+                "max-w-[80%] rounded-2xl px-3 py-2",
+                m.from === "user"
+                  ? "bg-slate-100 text-slate-900"
+                  : "bg-slate-800 text-slate-100",
+              ].join(" ")}
+            >
+              <p className="whitespace-pre-wrap text-[11px] leading-relaxed">
+                {m.text}
+              </p>
+            </div>
+          </div>
+        ))}
       </main>
+
+      {/* Error message (chat-level) */}
+      {chatError && (
+        <div className="mt-2 rounded-xl border border-red-800/60 bg-slate-900/80 px-3 py-2 text-[11px] text-red-200">
+          {chatError}
+        </div>
+      )}
+
+      {/* Input + actions */}
+      <footer className="mt-3 space-y-2">
+        <textarea
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Ask SAGE about your approach…"
+          className="h-20 w-full resize-none rounded-2xl border border-slate-800 bg-slate-950/80 px-3 py-2 text-xs text-slate-100 outline-none focus:border-emerald-400"
+        />
+
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={clearChat}
+              className="rounded-full border border-slate-700 bg-slate-950 px-3 py-1 text-[11px] font-medium text-slate-200"
+            >
+              Clear Chat
+            </button>
+            <button
+              type="button"
+              onClick={handleChangeSettings}
+              className="rounded-full border border-slate-700 bg-slate-950 px-3 py-1 text-[11px] font-medium text-slate-200"
+            >
+              Change Settings
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleSend}
+            disabled={sending || !input.trim()}
+            className={[
+              "rounded-full px-4 py-1 text-[11px] font-semibold",
+              sending || !input.trim()
+                ? "border border-slate-700 bg-slate-900 text-slate-500"
+                : "border border-emerald-400 bg-emerald-400 text-black",
+            ].join(" ")}
+          >
+            {sending ? "Sending…" : "Send"}
+          </button>
+        </div>
+      </footer>
     </div>
   );
 };

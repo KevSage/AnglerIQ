@@ -5,6 +5,7 @@ import PatternIntelScreen from "../screens/PatternIntelScreen";
 import VisionIntelligenceScreen from "../screens/VisionIntelligenceScreen";
 import SageChatScreen from "../screens/SageChatScreen";
 import PricingScreen from "../screens/PricingScreen";
+import OnboardingScreen from "../screens/OnboardingScreen";
 
 export const AppRoutes = () => {
   return (
@@ -17,14 +18,8 @@ export const AppRoutes = () => {
 
       <Route path="/sage" element={<SageChatScreen />} />
       <Route path="/control-center" element={<ControlCenterScreen />} />
-      <Route
-        path="/onboarding"
-        element={
-          <div className="min-h-screen px-4 py-4 text-gray-100">
-            Onboarding (placeholder)
-          </div>
-        }
-      />
+      <Route path="/onboarding" element={<OnboardingScreen />} />
+
       <Route path="/pricing" element={<PricingScreen />} />
     </Routes>
   );
