@@ -4,6 +4,7 @@ import { useTier } from "../hooks/useTier";
 import { usePattern, type PatternResponse } from "../hooks/usePattern";
 import { useSageChat } from "../hooks/useSageChat";
 import { useOnboardingGuard } from "../hooks/useOnboardingGuard";
+import ScreenContainer from "../components/layout/ScreenContainer";
 
 const SageChatScreen: React.FC = () => {
   useOnboardingGuard();
@@ -150,7 +151,7 @@ const SageChatScreen: React.FC = () => {
   const depthZoneLabel = p.depth_zone ?? "—";
 
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] flex-col px-4 py-4">
+    <ScreenContainer>
       {/* Header */}
       <header className="mb-3 flex items-center justify-between">
         <div>
@@ -280,7 +281,7 @@ const SageChatScreen: React.FC = () => {
           </button>
         </div>
       </footer>
-    </div>
+    </ScreenContainer>
   );
 };
 

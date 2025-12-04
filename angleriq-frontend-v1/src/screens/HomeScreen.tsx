@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useTier } from "../hooks/useTier";
 import { usePattern, type PatternResponse } from "../hooks/usePattern";
 import { useOnboardingGuard } from "../hooks/useOnboardingGuard";
+import ScreenContainer from "../components/layout/ScreenContainer";
 
 const HomeScreen: React.FC = () => {
   useOnboardingGuard();
@@ -100,7 +101,7 @@ const HomeScreen: React.FC = () => {
   };
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] px-4 py-4">
+    <ScreenContainer>
       {/* Tier Badge */}
       <header className="mb-4 flex items-center justify-between">
         <div>
@@ -253,7 +254,7 @@ const HomeScreen: React.FC = () => {
           </button>
         )}
       </section>
-    </div>
+    </ScreenContainer>
   );
 };
 

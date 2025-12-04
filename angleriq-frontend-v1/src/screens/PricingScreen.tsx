@@ -1,11 +1,12 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
+import ScreenContainer from "../components/layout/ScreenContainer";
 
 const PricingScreen: React.FC = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] px-4 py-4 text-slate-100">
+    <ScreenContainer>
       {/* Header */}
       <header className="mb-4 flex items-center justify-between">
         <div>
@@ -73,7 +74,7 @@ const PricingScreen: React.FC = () => {
           </p>
         </section>
       </main>
-    </div>
+    </ScreenContainer>
   );
 };
 

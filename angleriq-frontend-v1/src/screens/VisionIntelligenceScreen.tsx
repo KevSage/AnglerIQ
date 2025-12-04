@@ -10,6 +10,7 @@ import {
   type VisionApproachBlock,
 } from "../hooks/usePattern";
 import { useOnboardingGuard } from "../hooks/useOnboardingGuard";
+import ScreenContainer from "../components/layout/ScreenContainer";
 
 const VisionIntelligenceScreen: React.FC = () => {
   useOnboardingGuard();
@@ -113,7 +114,7 @@ const VisionIntelligenceScreen: React.FC = () => {
   }
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] px-4 py-4">
+    <ScreenContainer>
       {/* Header */}
       <header className="mb-4 flex items-center justify-between">
         <div>
@@ -314,7 +315,7 @@ const VisionIntelligenceScreen: React.FC = () => {
           </section>
         )}
       </div>
-    </div>
+    </ScreenContainer>
   );
 };
 

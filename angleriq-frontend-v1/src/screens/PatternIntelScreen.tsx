@@ -1,6 +1,7 @@
 import { useTier } from "../hooks/useTier";
 import { usePattern } from "../hooks/usePattern";
 import { useOnboardingGuard } from "../hooks/useOnboardingGuard";
+import ScreenContainer from "../components/layout/ScreenContainer";
 
 const PatternIntelScreen = () => {
   useOnboardingGuard();
@@ -26,7 +27,7 @@ const PatternIntelScreen = () => {
   const isEliteOrVision = tier === "elite" || tier === "vision";
 
   return (
-    <div className="min-h-screen px-4 py-4 text-gray-100">
+    <ScreenContainer>
       {/* Header */}
       <h1 className="text-lg font-semibold">Pattern Intelligence</h1>
 
@@ -110,7 +111,7 @@ const PatternIntelScreen = () => {
           </div>
         </section>
       </div>
-    </div>
+    </ScreenContainer>
   );
 };
 
