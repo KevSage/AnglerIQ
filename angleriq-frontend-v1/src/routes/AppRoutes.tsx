@@ -6,11 +6,13 @@ import VisionIntelligenceScreen from "../screens/VisionIntelligenceScreen";
 import SageChatScreen from "../screens/SageChatScreen";
 import PricingScreen from "../screens/PricingScreen";
 import OnboardingScreen from "../screens/OnboardingScreen";
+import LandingScreen from "../screens/LandingPage";
 
 export const AppRoutes = () => {
   return (
     <Routes>
       <Route path="/" element={<HomeScreen />} />
+      <Route path="/landing" element={<LandingScreen />} />
 
       <Route path="/intel" element={<PatternIntelScreen />} />
 

@@ -1,24 +1,43 @@
-import type { ReactNode } from "react";
-import GlobalHeader from "./GlobalHeader";
-import GlobalFooter from "./GlobalFooter";
+// src/components/layout/ScreenContainer.tsx
 
-type ScreenContainerProps = {
-  children: ReactNode;
+import React from "react";
+
+type Props = {
+  title?: string;
+  tagline?: string;
+  children: React.ReactNode;
+  className?: string;
 };
 
-const ScreenContainer = ({ children }: ScreenContainerProps) => {
+const ScreenContainer = ({
+  title,
+  tagline,
+  children,
+  className = "",
+}: Props) => {
   return (
-    <div className="min-h-screen bg-black text-slate-100">
-      {/* Global top bar */}
-      <GlobalHeader />
+    <div
+      className={`min-h-screen w-full bg-black text-white px-4 pb-10 ${className}`}
+    >
+      {/* Header Section */}
+      {(title || tagline) && (
+        <header className="pt-8 pb-4 text-center">
+          {title && (
+            <h1 className="text-xl font-semibold tracking-wide text-white">
+              {title}
+            </h1>
+          )}
 
-      {/* Screen content */}
-      <div className="px-4 py-4">
-        <div className="mx-auto w-full max-w-md">{children}</div>
+          {tagline && (
+            <p className="mt-1 text-[12px] text-gray-400 tracking-wide">
+              {tagline}
+            </p>
+          )}
+        </header>
+      )}
 
-        {/* Global footer for all main screens */}
-        <GlobalFooter />
-      </div>
+      {/* Main Content */}
+      <main className="mt-2">{children}</main>
     </div>
   );
 };

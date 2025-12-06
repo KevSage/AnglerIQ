@@ -1,31 +1,72 @@
+// src/hooks/useTier.ts
+
 import { useEffect, useState } from "react";
 
 export type Tier = "pro" | "elite" | "vision";
 
 const TIER_STORAGE_KEY = "aiq_tier";
+const ONBOARD_KEY = "aiq_onboarded";
+
+const isValidTier = (value: unknown): value is Tier =>
+  value === "pro" || value === "elite" || value === "vision";
+
+const loadInitialTier = (): Tier => {
+  if (typeof window === "undefined") return "pro";
+
+  try {
+    const raw = window.localStorage.getItem(TIER_STORAGE_KEY);
+    if (!raw) return "pro";
+
+    // First try: JSON (our normal path)
+    try {
+      const parsed = JSON.parse(raw);
+      if (isValidTier(parsed)) return parsed;
+    } catch {
+      // Second try: raw string (what you type in the console)
+      if (isValidTier(raw)) return raw;
+    }
+
+    return "pro";
+  } catch {
+    return "pro";
+  }
+};
 
 export const useTier = () => {
-  // Initialize from localStorage synchronously so routing decisions are correct on first render
-  const [tier, setTier] = useState<Tier>(() => {
-    try {
-      const stored = localStorage.getItem(TIER_STORAGE_KEY) as Tier | null;
-      if (stored === "pro" || stored === "elite" || stored === "vision") {
-        return stored;
-      }
-    } catch {
-      // if localStorage isn't available for some reason, fall back to 'pro'
-    }
-    return "pro";
-  });
+  const [tier, setTier] = useState<Tier>(loadInitialTier);
 
-  // Persist whenever tier changes
+  // Persist changes safely
   useEffect(() => {
+    if (typeof window === "undefined") return;
     try {
-      localStorage.setItem(TIER_STORAGE_KEY, tier);
+      window.localStorage.setItem(TIER_STORAGE_KEY, JSON.stringify(tier));
     } catch {
-      // ignore persistence errors in dev
+      // fail silently – tier still lives in state
     }
   }, [tier]);
 
-  return { tier, setTier };
+  const markOnboarded = () => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(ONBOARD_KEY, "true");
+    } catch {
+      // ignore
+    }
+  };
+
+  const isOnboarded = (() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return window.localStorage.getItem(ONBOARD_KEY) === "true";
+    } catch {
+      return false;
+    }
+  })();
+
+  return {
+    tier,
+    setTier,
+    isOnboarded,
+    markOnboarded,
+  };
 };

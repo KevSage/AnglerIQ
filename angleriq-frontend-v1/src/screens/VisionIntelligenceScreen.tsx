@@ -1,229 +1,191 @@
-import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+// src/screens/VisionIntelligenceScreen.tsx
+
+import { useState } from "react";
+import { Navigate } from "react-router-dom";
+import ScreenContainer from "../components/layout/ScreenContainer";
 import { useTier } from "../hooks/useTier";
 import { usePattern } from "../hooks/usePattern";
-import ScreenContainer from "../components/layout/ScreenContainer";
+
+import VisionSummaryStrip from "../components/vision/VisionSummaryStrip";
+import SurfaceEnhancedBlock from "../components/vision/SurfaceEnhancedBlock";
+import SonarEnhancedBlock from "../components/vision/SonarEnhancedBlock";
+import VisionFusionPanel from "../components/vision/VisionFusionPanel";
+
+type VisionMode = "surface" | "sonar" | "vision";
 
 const VisionIntelligenceScreen = () => {
   const { tier } = useTier();
-  const navigate = useNavigate();
   const { pattern, loading, error } = usePattern(tier);
+  const [mode, setMode] = useState<VisionMode>("vision");
 
-  useEffect(() => {
-    if (tier !== "vision") navigate("/", { replace: true });
-  }, [tier, navigate]);
-
-  if (tier !== "vision") return null;
-
-  const vision = pattern?.vision;
-  const surface = vision?.surface_enhanced;
-  const sonar = vision?.sonar_enhanced;
-  const fusedAnalysis = vision?.vision_enhanced_analysis;
-  const fusedApproach = vision?.vision_enhanced_approach;
-
-  const hasSurface = Boolean(surface);
-  const hasSonar = Boolean(sonar);
-  const hasFusion = hasSurface && hasSonar && Boolean(fusedAnalysis);
-
-  const getConfidence = () => {
-    const text = fusedAnalysis?.area_confidence?.toLowerCase() || "";
-    if (text.includes("high")) return "high";
-    if (text.includes("low")) return "low";
-    return "medium";
-  };
-
-  const confidence = getConfidence();
+  // Defensive tier gating
+  if (tier !== "vision") {
+    return <Navigate to="/" replace />;
+  }
 
   if (loading) {
     return (
-      <ScreenContainer>
-        <div className="flex min-h-[60vh] items-center justify-center text-xs text-gray-300">
-          <p className="animate-pulse">Interpreting today’s conditions…</p>
-        </div>
-      </ScreenContainer>
-    );
-  }
-
-  if (error) {
-    return (
-      <ScreenContainer>
-        <div className="mt-6 rounded-xl border border-red-500/40 bg-red-900/10 px-4 py-3 text-xs text-red-200">
-          Something went wrong while interpreting conditions. Try again.
-        </div>
-      </ScreenContainer>
-    );
-  }
-
-  if (!hasSurface && !hasSonar) {
-    return (
-      <ScreenContainer>
-        <header className="text-center">
-          <h1 className="text-lg font-semibold">Vision Intelligence</h1>
-          <p className="mt-1 text-xs text-gray-400">
-            Environmental Understanding — Elevated.
+      <ScreenContainer
+        title="Vision Intelligence Screen"
+        tagline="Environmental Understanding — Elevated."
+      >
+        <div className="flex min-h-[40vh] items-center justify-center">
+          <p className="text-xs text-gray-400">
+            Interpreting today&apos;s conditions…
           </p>
-        </header>
-
-        <div className="mt-8 text-xs text-gray-300 space-y-2 text-center">
-          <p>No surface or sonar inputs yet.</p>
-          <p>Upload imagery to activate Vision Enhanced analysis.</p>
         </div>
       </ScreenContainer>
     );
   }
+
+  if (error || !pattern) {
+    return (
+      <ScreenContainer
+        title="Vision Intelligence Screen"
+        tagline="Environmental Understanding — Elevated."
+      >
+        <div className="flex min-h-[40vh] items-center justify-center">
+          <p className="text-xs text-red-400">
+            Something went wrong while interpreting conditions. Try again.
+          </p>
+        </div>
+      </ScreenContainer>
+    );
+  }
+
+  const surface = pattern.vision?.surface_enhanced;
+  const sonar = pattern.vision?.sonar_enhanced;
+  const analysis = pattern.vision?.vision_enhanced_analysis;
+  const approach = pattern.vision?.vision_enhanced_approach;
+
+  const hasSurface = !!surface;
+  const hasSonar = !!sonar;
+  const hasVisionFusion = !!(analysis || approach);
+
+  const hasAnyVision = hasSurface || hasSonar || hasVisionFusion;
+
+  if (!hasAnyVision) {
+    return (
+      <ScreenContainer
+        title="Vision Intelligence Screen"
+        tagline="Environmental Understanding — Elevated."
+      >
+        <div className="mt-8 rounded-2xl border border-gray-700/70 bg-[#101010] px-4 py-6 text-center">
+          <p className="text-xs text-gray-200">
+            No sonar or surface images yet.
+          </p>
+          <p className="mt-2 text-[11px] text-gray-400">
+            Upload a photo or sonar screenshot to activate Vision Enhanced
+            interpretation.
+          </p>
+        </div>
+      </ScreenContainer>
+    );
+  }
+
+  // Auto-correct mode if selected one has no data
+  const safeMode: VisionMode = (() => {
+    if (mode === "surface" && !hasSurface) {
+      if (hasSonar) return "sonar";
+      if (hasVisionFusion) return "vision";
+    }
+    if (mode === "sonar" && !hasSonar) {
+      if (hasSurface) return "surface";
+      if (hasVisionFusion) return "vision";
+    }
+    if (mode === "vision" && !hasVisionFusion) {
+      if (hasSurface) return "surface";
+      if (hasSonar) return "sonar";
+    }
+    return mode;
+  })();
+
+  const tabBase =
+    "flex-1 px-3 py-1.5 text-[10px] font-medium rounded-full transition-colors";
+
+  const tabClasses = (target: VisionMode, enabled: boolean) => {
+    const active = safeMode === target;
+
+    if (!enabled) {
+      return [tabBase, "cursor-not-allowed opacity-40 text-gray-500"].join(" ");
+    }
+
+    if (!active) {
+      return [tabBase, "text-gray-300 hover:text-white"].join(" ");
+    }
+
+    // Active color by mode
+    if (target === "surface") {
+      return [tabBase, "bg-emerald-500/90 text-black"].join(" ");
+    }
+    if (target === "sonar") {
+      return [tabBase, "bg-sky-500/90 text-black"].join(" ");
+    }
+    // vision
+    return [tabBase, "bg-indigo-500/90 text-black"].join(" ");
+  };
 
   return (
-    <ScreenContainer>
-      <header className="mb-5 text-center">
-        <h1 className="text-lg font-semibold">Vision Intelligence</h1>
-        <p className="mt-1 text-xs text-gray-400">
-          Environmental Understanding — Elevated.
-        </p>
-      </header>
+    <ScreenContainer
+      title="Vision Intelligence Screen"
+      tagline="Environmental Understanding — Elevated."
+    >
+      <div className="vision-intel-root">
+        {" "}
+        {/* Mode selector */}
+        <div className="mb-4 rounded-full bg-[#050608] p-1">
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              disabled={!hasSurface}
+              className={tabClasses("surface", hasSurface)}
+              onClick={() => hasSurface && setMode("surface")}
+            >
+              Surface Enhanced
+            </button>
+            <button
+              type="button"
+              disabled={!hasSonar}
+              className={tabClasses("sonar", hasSonar)}
+              onClick={() => hasSonar && setMode("sonar")}
+            >
+              Sonar Enhanced
+            </button>
+            <button
+              type="button"
+              disabled={!hasVisionFusion}
+              className={tabClasses("vision", hasVisionFusion)}
+              onClick={() => hasVisionFusion && setMode("vision")}
+            >
+              Vision Enhanced
+            </button>
+          </div>
+        </div>
+        {/* Summary strip (works for all modes) */}
+        <VisionSummaryStrip
+          mode={safeMode}
+          surface={surface}
+          sonar={sonar}
+          analysis={analysis}
+          approach={approach}
+        />
+        {/* Mode-specific content */}
+        <div className="mt-2 space-y-5">
+          {safeMode === "surface" && surface && (
+            <SurfaceEnhancedBlock surface={surface} />
+          )}
 
-      <main className="space-y-6 pb-10">
-        {hasFusion && (
-          <VisionPanel>
-            <PanelTitle title="Area Confidence" />
-            <ConfidenceMeter level={confidence} />
-            <p className="mt-2 text-[12px] text-gray-300 text-center">
-              {fusedAnalysis?.area_confidence}
-            </p>
-          </VisionPanel>
-        )}
+          {safeMode === "sonar" && sonar && (
+            <SonarEnhancedBlock sonar={sonar} />
+          )}
 
-        {hasSurface && (
-          <VisionPanel>
-            <PanelTitle title="Surface Enhanced" tag="Active" />
-            <Detail
-              label="Visible Structure"
-              value={surface?.visible_structure}
-            />
-            <Detail label="Cover Density" value={surface?.cover_density} />
-            <Detail label="Clarity Cues" value={surface?.clarity_cues} />
-            <Detail label="Shade Lanes" value={surface?.shade_lanes} />
-            <Detail label="Vegetation Type" value={surface?.vegetation_type} />
-          </VisionPanel>
-        )}
-
-        {hasSonar && (
-          <VisionPanel>
-            <PanelTitle title="Sonar Enhanced" tag="Active" />
-            <Detail label="Depth Bands" value={sonar?.depth_bands} />
-            <Detail label="Bottom Hardness" value={sonar?.bottom_hardness} />
-            <Detail label="Bait Presence" value={sonar?.bait_presence} />
-            <Detail label="Arch Count" value={sonar?.arch_count} />
-            <Detail label="Activity Level" value={sonar?.activity_level} />
-            <Detail
-              label="Should You Keep Moving?"
-              value={sonar?.should_you_keep_moving}
-            />
-          </VisionPanel>
-        )}
-
-        {hasFusion && fusedAnalysis && (
-          <VisionPanel>
-            <PanelTitle title="Vision Enhanced Analysis" tag="Active" />
-            <Detail label="Quality Zone" value={fusedAnalysis.quality_zone} />
-            <Detail
-              label="Movement Logic"
-              value={fusedAnalysis.movement_logic}
-            />
-            <Detail
-              label="Environmental Interpretation"
-              value={fusedAnalysis.environmental_interpretation}
-            />
-          </VisionPanel>
-        )}
-
-        {hasFusion && fusedApproach && (
-          <VisionPanel>
-            <PanelTitle title="Vision Enhanced Approach" tag="Active" />
-            <Detail
-              label="Updated Technique Focus"
-              value={fusedApproach.updated_technique_focus}
-            />
-            <Detail
-              label="Updated Depth Expectation"
-              value={fusedApproach.updated_depth_expectation}
-            />
-            <Detail
-              label="Updated Movement Strategy"
-              value={fusedApproach.updated_movement_strategy}
-            />
-            <Detail
-              label="Why Vision Adjusted the Approach"
-              value={fusedApproach.why_vision_adjusted_the_approach}
-            />
-          </VisionPanel>
-        )}
-      </main>
+          {safeMode === "vision" && (
+            <VisionFusionPanel analysis={analysis} approach={approach} />
+          )}
+        </div>
+      </div>
     </ScreenContainer>
   );
 };
-
-/* ---------------------------------------------------------------- */
-/* SHARED COMPONENTS */
-/* ---------------------------------------------------------------- */
-
-const VisionPanel = ({ children }: { children: React.ReactNode }) => (
-  <section className="rounded-xl border border-gray-700/40 bg-[#111]/40 px-4 py-4 space-y-4">
-    {children}
-  </section>
-);
-
-const PanelTitle = ({ title, tag }: { title: string; tag?: string }) => (
-  <div className="mb-4 flex items-end justify-between">
-    <div>
-      <h2 className="inline-block text-[13px] font-semibold text-gray-50">
-        <span className="border-b border-emerald-300/60 pb-[2px]">{title}</span>
-      </h2>
-    </div>
-    {tag && (
-      <span className="ml-2 rounded-full border border-emerald-500/50 px-2 py-0.5 text-[10px] text-emerald-300">
-        {tag}
-      </span>
-    )}
-  </div>
-);
-
-const ConfidenceMeter = ({ level }: { level: "low" | "medium" | "high" }) => (
-  <div className="mt-2 flex gap-1">
-    <span
-      className={`h-1.5 flex-1 rounded-full ${
-        level === "low" || level === "medium" || level === "high"
-          ? "bg-emerald-400/80"
-          : "bg-gray-700"
-      }`}
-    />
-    <span
-      className={`h-1.5 flex-1 rounded-full ${
-        level === "medium" || level === "high"
-          ? "bg-emerald-400/60"
-          : "bg-gray-800"
-      }`}
-    />
-    <span
-      className={`h-1.5 flex-1 rounded-full ${
-        level === "high" ? "bg-emerald-400/40" : "bg-gray-900"
-      }`}
-    />
-  </div>
-);
-
-const Detail = ({ label, value }: { label: string; value?: string | null }) => (
-  <div className="space-y-1.5">
-    <div className="flex items-center gap-2">
-      <span className="h-3 w-[2px] rounded-full bg-emerald-400/80" />
-      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-200">
-        {label}
-      </p>
-    </div>
-    <p className="ml-[10px] text-[13px] leading-snug text-gray-100">
-      {value || "—"}
-    </p>
-    <div className="mt-2 w-full border-b border-dotted border-gray-700/40" />
-  </div>
-);
 
 export default VisionIntelligenceScreen;
