@@ -1,488 +1,385 @@
 // src/screens/LandingPage.tsx
 
 import React from "react";
-import { Link } from "react-router-dom";
-import MarketingVisionOverview from "../marketing/MarketingVisionOverview";
+import { useNavigate } from "react-router-dom";
 
 const LandingPage: React.FC = () => {
+  const navigate = useNavigate();
+
+  const handleStart = () => navigate("/onboarding");
+  const handlePricing = () => navigate("/pricing");
+
   return (
-    <div className="min-h-screen bg-[#0b0b0b] text-gray-100">
-      {/* HEADER */}
-      <header className="fixed inset-x-0 top-0 z-40 border-b border-white/5 bg-gradient-to-b from-black/80 via-black/60 to-transparent backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:h-16">
-          {/* Left: Brand */}
-          <div className="flex items-baseline gap-2">
-            <span className="text-sm font-semibold tracking-[0.14em] text-gray-100 sm:text-base">
-              Angler<span className="font-bold">IQ</span>
-            </span>
-            <span className="hidden text-[10px] text-gray-400 sm:inline">
-              Powered by SAGE
-            </span>
-          </div>
+    <div className="min-h-screen bg-slate-950 text-slate-50">
+      {/* HERO SECTION — lake / environment */}
+      <section
+        className="relative overflow-hidden"
+        style={{
+          // TODO: replace with real hero image (wide lake at dawn / morning fog)
+          backgroundImage: "url('/images/hero-lake-dawn.jpg')",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}
+      >
+        {/* Dark overlay */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/72 to-slate-950/95" />
 
-          {/* Right: Nav */}
-          <nav className="flex items-center gap-3 text-xs sm:gap-4 sm:text-sm">
-            <a
-              href="#vision"
-              className="hidden text-gray-300 hover:text-white sm:inline"
-            >
-              Vision
-            </a>
-            <a
-              href="#pricing"
-              className="hidden text-gray-300 hover:text-white sm:inline"
-            >
-              Pricing
-            </a>
-            <button
-              type="button"
-              className="hidden rounded-full border border-gray-600 px-3 py-1 text-xs text-gray-200 hover:border-gray-400 sm:inline"
-            >
-              Sign In
-            </button>
-            <Link
-              to="/onboarding"
-              className="rounded-full bg-[#8FAF8F] px-3 py-1.5 text-[11px] font-medium text-black hover:bg-[#9dc19d] sm:px-4 sm:text-xs"
-            >
-              Start with Vision
-            </Link>
-          </nav>
-        </div>
-      </header>
+        {/* Soft horizon mist */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-[-40px] h-40 bg-[radial-gradient(circle_at_center,_rgba(148,163,184,0.25),_transparent)] blur-xl" />
 
-      <main className="pt-20 sm:pt-24">
-        {/* 2. HERO SECTION */}
-        <section
-          id="hero"
-          className="relative border-b border-white/5 bg-gradient-to-b from-[#050505] via-[#070909] to-black"
-        >
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(143,175,143,0.18),_transparent_55%)]" />
-          <div className="relative mx-auto flex min-h-[60vh] max-w-5xl flex-col items-center px-4 pb-16 pt-8 text-center sm:min-h-[70vh] sm:pt-10">
-            <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.18em] text-[#8FAF8F]/80">
-              Environmental Understanding
-            </p>
-            <h1 className="max-w-3xl text-[28px] font-semibold leading-tight text-gray-50 sm:text-[40px] md:text-[48px]">
-              Environmental Understanding — Elevated and Interpreted.
-            </h1>
-            <p className="mt-4 max-w-xl text-[13px] text-gray-300 sm:text-[15px]">
-              AnglerIQ is the premium bass-fishing intelligence system built for
-              clarity, confidence, and structure.
-            </p>
-            <p className="mt-2 max-w-xl text-[12px] text-gray-400 sm:text-[13px]">
-              Powered by environmental logic, real-time Vision Enhanced
-              interpretation, and SAGE.
-            </p>
-
-            <div className="mt-6 flex w-full max-w-md flex-col gap-3 sm:flex-row sm:justify-center">
-              <Link
-                to="/onboarding"
-                className="flex-1 rounded-full bg-[#8FAF8F] px-4 py-2.5 text-center text-[13px] font-medium text-black hover:bg-[#9dc19d]"
-              >
-                Start with Vision
-              </Link>
-              <a
-                href="#pricing"
-                className="flex-1 rounded-full border border-gray-600 px-4 py-2.5 text-center text-[13px] text-gray-100 hover:border-gray-400"
-              >
-                See Pricing
-              </a>
-            </div>
-
-            {/* Subtle visual area hint */}
-            <div className="mt-10 flex w-full max-w-xl flex-col items-center gap-2 text-[11px] text-gray-500">
-              <div className="h-[1px] w-20 bg-gradient-to-r from-transparent via-gray-600 to-transparent" />
-              <p>Pattern-of-the-Moment · Vision Enhanced · SAGE Guidance</p>
-            </div>
-          </div>
-        </section>
-        {/* 3. WHAT ANGLERIQ DOES */}
-        <section id="what" className="border-b border-white/5 bg-[#050505]">
-          <div className="mx-auto max-w-3xl px-4 py-10 sm:py-14">
-            <h2 className="text-center text-[20px] font-semibold text-gray-50 sm:text-[24px]">
-              What AnglerIQ Does
-            </h2>
-            <p className="mt-5 max-w-2xl text-[14px] leading-relaxed text-gray-300 sm:text-[15px]">
-              AnglerIQ cuts through noise by analyzing today&apos;s conditions
-              to produce a Pattern-of-the-Moment — a single, disciplined
-              approach grounded in seasonal behavior, structure, clarity, and
-              biological cues.
-            </p>
-            {/* If you want more body copy from the V1.4 landing doc, paste it here */}
-          </div>
-        </section>
-        {/* 4. THREE LAYERS OF ANGLERIQ */}
-        <section className="border-b border-white/5 bg-black/95">
-          <div className="mx-auto max-w-5xl px-4 py-12 sm:py-16">
-            <h2 className="text-center text-[20px] font-semibold text-gray-50 sm:text-[24px]">
-              Three Layers of AnglerIQ
-            </h2>
-            <p className="mt-3 text-center text-[13px] text-gray-400 sm:text-[14px]">
-              Learn the pattern, understand the pattern, then interpret the
-              environment.
-            </p>
-
-            <div className="mt-8 grid gap-6 md:grid-cols-3">
-              {/* PRO */}
-              <div className="rounded-2xl border border-white/7 bg-[#101010] p-5 shadow-[0_0_40px_rgba(0,0,0,0.3)]">
-                <h3 className="text-[18px] font-semibold text-gray-50">
-                  Pro — Learn the Pattern
-                </h3>
-                <p className="mt-2 text-[13px] text-gray-400">
-                  Clear, disciplined guidance when you want one proven way to
-                  fish today.
+        {/* Nav + hero */}
+        <div className="relative mx-auto flex min-h-[520px] max-w-5xl flex-col px-4 py-4">
+          {/* Top nav */}
+          <header className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-600/80 bg-black/60 text-xs font-semibold tracking-[0.15em]">
+                AIQ
+              </div>
+              <div className="leading-tight">
+                <p className="text-sm font-semibold text-slate-50">AnglerIQ</p>
+                <p className="text-[10px] uppercase tracking-wide text-slate-400">
+                  Environmental Understanding — Elevated and Interpreted.
                 </p>
-                <ul className="mt-4 space-y-1.5 text-[13px] text-gray-300">
-                  <li>• Pattern-of-the-Moment</li>
-                  <li>• Recommended lure + supporting options</li>
-                  <li>• Offline mode</li>
-                  <li>• Depth zone guidance</li>
-                  <li>• Seasonal environmental logic</li>
-                </ul>
-              </div>
-
-              {/* ELITE */}
-              <div className="rounded-2xl border border-white/7 bg-[#101010] p-5 shadow-[0_0_40px_rgba(0,0,0,0.3)]">
-                <h3 className="text-[18px] font-semibold text-gray-50">
-                  Elite — Understand the Pattern
-                </h3>
-                <p className="mt-2 text-[13px] text-gray-400">
-                  See how the pattern evolves through the day with adjustments
-                  and nuance.
-                </p>
-                <ul className="mt-4 space-y-1.5 text-[13px] text-gray-300">
-                  <li>• Gameplan Timeline</li>
-                  <li>• Adjustment Cards</li>
-                  <li>• Supporting lures</li>
-                  <li>• Color recommendations</li>
-                  <li>• Personalized SAGE coaching</li>
-                  <li>• Offline fallback</li>
-                </ul>
-              </div>
-
-              {/* VISION */}
-              <div className="rounded-2xl border border-white/7 bg-[#101010] p-5 shadow-[0_0_40px_rgba(0,0,0,0.3)]">
-                <h3 className="text-[18px] font-semibold text-gray-50">
-                  Vision — Interpret the Environment
-                </h3>
-                <p className="mt-2 text-[13px] text-gray-400">
-                  Real-time interpretation for anglers who want to see what the
-                  environment is really doing.
-                </p>
-                <ul className="mt-4 space-y-1.5 text-[13px] text-gray-300">
-                  <li>• Surface Enhanced cues</li>
-                  <li>• Sonar Enhanced cues</li>
-                  <li>• Vision Enhanced (Combined Interpretation)</li>
-                  <li>• Vision Enhanced Approach (conditional)</li>
-                  <li>• Area confidence scoring</li>
-                  <li>• Movement logic</li>
-                  <li>• SAGE Vision Mode</li>
-                  <li>• Premium Confidence Meter</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </section>
-        {/* 5. SAGE SECTION */}
-        <section id="sage" className="border-b border-white/5 bg-[#050505]">
-          <div className="mx-auto flex max-w-5xl flex-col gap-8 px-4 py-12 sm:flex-row sm:items-center sm:py-16">
-            {/* Text */}
-            <div className="flex-1">
-              <h2 className="text-[20px] font-semibold text-gray-50 sm:text-[24px]">
-                SAGE — Your On-Water Guide
-              </h2>
-              <p className="mt-3 max-w-xl text-[14px] text-gray-300 sm:text-[15px]">
-                SAGE is not a chatbot. It&apos;s the Seasonal Adaptive Guidance
-                Engine that explains your Pattern-of-the-Moment, adapts its tone
-                to your experience level, and helps you stay disciplined on a
-                single, well-reasoned approach.
-              </p>
-              <ul className="mt-4 space-y-1.5 text-[13px] text-gray-300">
-                <li>
-                  • Experience Level, Coaching Style, Preferred Styles,
-                  Confidence Spectrum
-                </li>
-                <li>
-                  • Tone-only personalization — pattern and Vision logic stay
-                  untouched
-                </li>
-                <li>
-                  • Calm, premium guidance that reduces screen time and keeps
-                  you fishing
-                </li>
-              </ul>
-
-              {/* Offline banner */}
-              <div className="mt-5 inline-flex items-center rounded-xl border border-gray-700 bg-[#1C1C1C] px-3 py-2 text-[11px] text-gray-200">
-                <span className="mr-2 h-1.5 w-1.5 rounded-full bg-[#8FAF8F]" />
-                <span>
-                  SAGE Offline: fundamentals only — reconnect for full guidance.
-                </span>
               </div>
             </div>
 
-            {/* Simple visual placeholder */}
-            <div className="flex flex-1 items-center justify-center">
-              <div className="relative w-full max-w-xs rounded-2xl border border-white/8 bg-gradient-to-br from-[#111] via-[#141a14] to-black p-4">
-                <div className="mb-2 flex items-center justify-between">
-                  <span className="text-[11px] font-medium tracking-[0.18em] text-gray-400">
-                    SAGE
-                  </span>
-                  <span className="rounded-full border border-gray-600 px-2 py-0.5 text-[10px] text-gray-300">
-                    Guidance
-                  </span>
-                </div>
-                <div className="space-y-2.5 text-[11px] text-gray-200">
-                  <div className="rounded-xl bg-black/60 px-3 py-2">
-                    Today&apos;s Pattern-of-the-Moment is locked in. Let&apos;s
-                    focus on working this approach cleanly before we change
-                    anything.
-                  </div>
-                  <div className="flex justify-end">
-                    <div className="rounded-xl border border-[#8FAF8F] px-3 py-1.5 text-[11px] text-gray-100">
-                      How should I fish it here?
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-        6. VISION ENHANCED INTERPRETATION
-        <MarketingVisionOverview />
-        {/* 7. LURE LIBRARY */}
-        <section className="border-b border-white/5 bg-[#050505]">
-          <div className="mx-auto max-w-4xl px-4 py-12 sm:py-16">
-            <h2 className="text-center text-[20px] font-semibold text-gray-50 sm:text-[24px]">
-              Lure Library
-            </h2>
-            <p className="mt-3 text-center text-[13px] text-gray-400 sm:text-[14px]">
-              A static reference for techniques, depth ranges, and seasonal
-              roles — ready whenever you want to learn, not just when
-              you&apos;re on a pattern.
-            </p>
-
-            {/* Placeholder for icons / categories */}
-            <div className="mt-7 grid grid-cols-3 gap-4 sm:grid-cols-6">
-              {[
-                "Jigs",
-                "Crankbaits",
-                "Topwater",
-                "Finesse",
-                "Swimbaits",
-                "Spinnerbaits",
-              ].map((label) => (
-                <div
-                  key={label}
-                  className="flex flex-col items-center justify-center rounded-xl border border-white/7 bg-[#101010] px-2 py-3"
-                >
-                  <div className="mb-1 h-7 w-7 rounded-full border border-gray-600" />
-                  <span className="text-[11px] text-gray-200">{label}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-8 flex justify-center">
+            <div className="flex items-center gap-3">
               <button
                 type="button"
-                className="rounded-full border border-gray-600 px-4 py-2 text-[13px] text-gray-100 hover:border-gray-400"
+                onClick={handlePricing}
+                className="hidden rounded-full border border-slate-600/80 bg-black/40 px-3 py-1.5 text-[11px] font-medium text-slate-100 backdrop-blur-sm sm:inline-flex"
               >
-                View All Techniques
+                Pricing
+              </button>
+              <button
+                type="button"
+                onClick={handleStart}
+                className="rounded-full border border-emerald-400 bg-emerald-400 px-4 py-1.5 text-[11px] font-semibold text-black shadow-[0_0_24px_rgba(16,185,129,0.75)]"
+              >
+                Start with Vision
               </button>
             </div>
-          </div>
-        </section>
-        {/* 8. PRICING */}
-        <section id="pricing" className="border-b border-white/5 bg-black">
-          <div className="mx-auto max-w-5xl px-4 py-12 sm:py-16">
-            <h2 className="text-center text-[20px] font-semibold text-gray-50 sm:text-[24px]">
-              Choose Your Plan
-            </h2>
-            <p className="mt-3 text-center text-[13px] text-gray-400 sm:text-[14px]">
-              Start where you are. Upgrade when you&apos;re ready.
-            </p>
+          </header>
 
-            <div className="mt-8 grid gap-6 md:grid-cols-3">
-              {/* PRO */}
-              <div className="flex flex-col rounded-2xl border border-white/7 bg-[#101010] p-5">
-                <h3 className="text-[16px] font-semibold text-gray-50">Pro</h3>
-                <p className="mt-2 text-[13px] text-gray-400">
-                  Learn the Pattern.
-                </p>
-                <div className="mt-4 text-[13px] text-gray-100">
-                  <p>
-                    <span className="text-[18px] font-semibold">$9.99</span>/mo
-                  </p>
-                  <p className="mt-1 text-gray-400">$49/yr</p>
-                </div>
-                <ul className="mt-4 space-y-1.5 text-[13px] text-gray-300">
-                  <li>• Pattern-of-the-Moment</li>
-                  <li>• Depth zone and seasonal logic</li>
-                  <li>• Offline-ready guidance</li>
-                </ul>
+          {/* Hero body */}
+          <div className="mt-10 grid flex-1 gap-10 md:grid-cols-[minmax(0,3fr)_minmax(0,2.2fr)] md:items-center">
+            {/* Left: copy */}
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-300/90">
+                Bass Fishing · Pattern System · Vision Enhanced
+              </p>
+
+              <h1 className="mt-3 text-3xl font-semibold leading-tight text-slate-50 sm:text-4xl">
+                Read your lake like a{" "}
+                <span className="text-emerald-300">system</span>,
+                <br className="hidden sm:block" /> not a mystery.
+              </h1>
+
+              <p className="mt-4 max-w-xl text-sm text-slate-200">
+                AnglerIQ turns weather, season, and water clarity into a single
+                Pattern of the Day — then uses Vision Enhanced interpretation to
+                help you see what the environment is actually doing around your
+                boat.
+              </p>
+
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
                 <button
                   type="button"
-                  className="mt-5 rounded-full border border-gray-600 px-4 py-2 text-[13px] text-gray-100 hover:border-gray-400"
+                  onClick={handleStart}
+                  className="w-full rounded-full border border-emerald-400 bg-emerald-400 px-4 py-2 text-sm font-semibold text-black sm:w-auto"
                 >
-                  Start with Pro
+                  Get started
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePricing}
+                  className="w-full rounded-full border border-slate-600/90 bg-black/40 px-4 py-2 text-sm font-semibold text-slate-100 backdrop-blur-sm sm:w-auto"
+                >
+                  View tiers
                 </button>
               </div>
 
-              {/* ELITE */}
-              <div className="flex flex-col rounded-2xl border border-white/7 bg-[#101010] p-5">
-                <h3 className="text-[16px] font-semibold text-gray-50">
-                  Elite
-                </h3>
-                <p className="mt-2 text-[13px] text-gray-400">
-                  Understand the Pattern.
-                </p>
-                <div className="mt-4 text-[13px] text-gray-100">
-                  <p>
-                    <span className="text-[18px] font-semibold">$19.99</span>/mo
+              <p className="mt-3 text-[11px] text-slate-400">
+                No free tier. Built for anglers who take learning seriously.
+              </p>
+            </div>
+
+            {/* Right: device over water */}
+            <div className="flex justify-center md:justify-end">
+              <div className="relative h-[430px] w-full max-w-[260px] rounded-[32px] border border-slate-700/80 bg-slate-950/95 p-3 shadow-[0_0_80px_rgba(15,23,42,0.9)] backdrop-blur">
+                {/* Glow */}
+                <div className="pointer-events-none absolute -inset-4 -z-10 rounded-[40px] bg-[radial-gradient(circle_at_bottom,_rgba(34,197,94,0.35),_transparent)] opacity-80" />
+
+                {/* Notch */}
+                <div className="mx-auto mb-3 h-1.5 w-16 rounded-full bg-slate-700/80" />
+
+                {/* Conditions */}
+                <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                      Today&apos;s Conditions
+                    </p>
+                    <span className="rounded-full border border-slate-700 bg-slate-950 px-2 py-0.5 text-[9px] uppercase tracking-wide text-slate-200">
+                      Vision Tier
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 text-[9px]">
+                    <span className="rounded-full border border-slate-700 bg-slate-900 px-2 py-1 text-slate-100">
+                      Warming trend
+                    </span>
+                    <span className="rounded-full border border-slate-700 bg-slate-900 px-2 py-1 text-slate-100">
+                      Light wind
+                    </span>
+                    <span className="rounded-full border border-slate-700 bg-slate-900 px-2 py-1 text-slate-100">
+                      Stained water
+                    </span>
+                  </div>
+                </div>
+
+                {/* Pattern of the Day */}
+                <div className="mt-3 rounded-2xl border border-slate-800 bg-slate-900/90 p-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                    Pattern of the Day
                   </p>
-                  <p className="mt-1 text-gray-400">$99/yr</p>
-                </div>
-                <ul className="mt-4 space-y-1.5 text-[13px] text-gray-300">
-                  <li>• Everything in Pro</li>
-                  <li>• Gameplan Timeline</li>
-                  <li>• Adjustment Cards</li>
-                  <li>• SAGE coaching</li>
-                </ul>
-                <button
-                  type="button"
-                  className="mt-5 rounded-full border border-gray-600 px-4 py-2 text-[13px] text-gray-100 hover:border-gray-400"
-                >
-                  Start with Elite
-                </button>
-              </div>
-
-              {/* VISION */}
-              <div className="flex flex-col rounded-2xl border border-[#8FAF8F]/70 bg-[#101010] p-5 shadow-[0_0_60px_rgba(143,175,143,0.25)]">
-                <h3 className="text-[16px] font-semibold text-gray-50">
-                  Vision
-                </h3>
-                <p className="mt-2 text-[13px] text-gray-300">
-                  Interpret the Environment.
-                </p>
-                <div className="mt-4 text-[13px] text-gray-100">
-                  <p>
-                    <span className="text-[18px] font-semibold">$29.99</span>/mo
+                  <p className="mt-1 text-[13px] font-medium text-slate-50">
+                    Slow-rolled chatterbait along wind-blown grass edges.
                   </p>
-                  <p className="mt-1 text-gray-300">$149/yr</p>
+                  <p className="mt-2 text-[10px] text-slate-400">
+                    Built from today&apos;s conditions, not a random lure list.
+                  </p>
                 </div>
-                <ul className="mt-4 space-y-1.5 text-[13px] text-gray-200">
-                  <li>• Everything in Elite</li>
-                  <li>• Surface Enhanced + Sonar Enhanced</li>
-                  <li>• Vision Enhanced Analysis &amp; Approach</li>
-                  <li>• Area confidence scoring</li>
-                </ul>
-                <button
-                  type="button"
-                  className="mt-5 rounded-full bg-[#8FAF8F] px-4 py-2 text-[13px] font-medium text-black hover:bg-[#9dc19d]"
-                >
-                  Start with Vision
-                </button>
+
+                {/* Tacklebox + Vision */}
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  {/* Tacklebox */}
+                  <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                      Tacklebox
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      <div className="h-6 w-10 rounded-full bg-gradient-to-r from-emerald-500 to-emerald-300" />
+                      <div className="h-6 w-10 rounded-full bg-gradient-to-r from-slate-200 to-slate-50" />
+                      <div className="h-6 w-10 rounded-full bg-gradient-to-r from-amber-500 to-amber-300" />
+                    </div>
+                    <p className="mt-2 text-[9px] text-slate-400">
+                      Patterns only use the lures you actually own.
+                    </p>
+                  </div>
+
+                  {/* Vision Enhanced preview */}
+                  <div className="rounded-2xl border border-emerald-500/70 bg-emerald-500/5 p-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-300">
+                      Vision Enhanced
+                    </p>
+                    <div
+                      className="mt-2 h-16 rounded-xl border border-emerald-500/40 bg-cover bg-center"
+                      style={{
+                        // TODO: replace with sonar / surface mock
+                        backgroundImage: "url('/images/vision-sonar-mock.jpg')",
+                      }}
+                    />
+                    <p className="mt-2 text-[9px] text-emerald-100">
+                      Upload sonar or surface photos and see the local
+                      environment interpreted for you.
+                    </p>
+                  </div>
+                </div>
+
+                {/* SAGE */}
+                <div className="mt-3 rounded-2xl border border-slate-800 bg-slate-900/90 p-2.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                    SAGE
+                  </p>
+                  <p className="mt-1 text-[10px] text-slate-200">
+                    “Given this pattern and your experience level, here&apos;s
+                    how I&apos;d fish the next hour…”
+                  </p>
+                </div>
               </div>
             </div>
-
-            {/* Founders Rate card */}
-            <div className="mt-8 flex justify-center">
-              <div className="w-full max-w-xl rounded-2xl border border-[#8FAF8F]/60 bg-gradient-to-r from-[#0b120d] via-[#111] to-[#151b14] px-4 py-4 sm:px-6 sm:py-5">
-                <div className="mb-1 flex items-center justify-between">
-                  <span className="rounded-full border border-[#8FAF8F]/70 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.16em] text-[#8FAF8F]">
-                    Founders
-                  </span>
-                  <span className="text-[11px] text-gray-400">
-                    Limited to first 100 Vision annual
-                  </span>
-                </div>
-                <p className="text-[14px] font-medium text-gray-50 sm:text-[15px]">
-                  Vision Founders Rate — $99/yr for life
-                </p>
-                <p className="mt-1 text-[12px] text-gray-300">
-                  Your rate never increases and always matches or beats future
-                  discounts.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-        {/* 9. WHY ANGLERIQ */}
-        <section className="border-b border-white/5 bg-[#050505]">
-          <div className="mx-auto max-w-3xl px-4 py-12 sm:py-16">
-            <h2 className="text-center text-[20px] font-semibold text-gray-50 sm:text-[24px]">
-              Why AnglerIQ
-            </h2>
-            <div className="mt-6 space-y-2 text-center text-[15px] text-gray-200">
-              <p>Discipline over randomness.</p>
-              <p>Interpretation over luck.</p>
-              <p>Confidence through clarity.</p>
-              <p>A single, well-reasoned approach.</p>
-            </div>
-            <div className="mt-8 flex justify-center">
-              <Link
-                to="/onboarding"
-                className="rounded-full bg-[#8FAF8F] px-5 py-2.5 text-[13px] font-medium text-black hover:bg-[#9dc19d]"
-              >
-                Begin with Vision
-              </Link>
-            </div>
-          </div>
-        </section>
-        {/* 10. TRUST THE PROCESS */}
-        <section className="border-b border-white/5 bg-black/95">
-          <div className="mx-auto max-w-3xl px-4 py-12 sm:py-16">
-            <h2 className="text-[20px] font-semibold text-gray-50 sm:text-[24px]">
-              Trust the Process
-            </h2>
-            <p className="mt-4 text-[14px] leading-relaxed text-gray-300 sm:text-[15px]">
-              AnglerIQ is built around a simple idea: pick one disciplined
-              approach for today, understand why it works, and commit long
-              enough for the pattern to teach you something real. You can still
-              experiment, change baits, and fish your way — but when it matters,
-              you have a clear, stable anchor to come back to.
-            </p>
-          </div>
-        </section>
-        {/* 11. FINAL CTA */}
-        <section className="border-b border-white/5 bg-[#050505]">
-          <div className="mx-auto max-w-3xl px-4 py-12 sm:py-16 text-center">
-            <h2 className="text-[22px] font-semibold text-gray-50 sm:text-[26px]">
-              Start Interpreting the Environment
-            </h2>
-            <p className="mt-3 text-[13px] text-gray-300 sm:text-[14px]">
-              Lock in your tier, set your preferences, and let AnglerIQ handle
-              the environmental interpretation.
-            </p>
-            <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4">
-              <Link
-                to="/onboarding"
-                className="w-full max-w-xs rounded-full bg-[#8FAF8F] px-5 py-2.5 text-center text-[13px] font-medium text-black hover:bg-[#9dc19d]"
-              >
-                Begin with Vision
-              </Link>
-              <a
-                href="#pricing"
-                className="w-full max-w-xs rounded-full border border-gray-600 px-5 py-2.5 text-center text-[13px] text-gray-100 hover:border-gray-400"
-              >
-                Explore Tiers
-              </a>
-            </div>
-          </div>
-        </section>
-      </main>
-
-      {/* 12. FOOTER */}
-      <footer className="border-t border-white/5 bg-[#050505]">
-        <div className="mx-auto flex max-w-5xl flex-col gap-3 px-4 py-6 text-[11px] text-gray-500 sm:flex-row sm:items-center sm:justify-between sm:text-[12px]">
-          <div className="space-y-1">
-            <p>© 2025 AnglerIQ — Powered by SAGE</p>
-            <p>Environmental Understanding — Elevated and Interpreted.</p>
-          </div>
-          <div className="space-y-1 sm:text-right">
-            <p>Support: sage@angleriq.io</p>
           </div>
         </div>
-      </footer>
+      </section>
+
+      {/* Depth band divider */}
+      <div className="h-10 w-full bg-[linear-gradient(to_right,_rgba(15,23,42,1)_0%,_rgba(15,23,42,0.9)_25%,_rgba(15,23,42,0.85)_50%,_rgba(15,23,42,0.9)_75%,_rgba(15,23,42,1)_100%),_repeating-linear-gradient(to_top,_rgba(30,64,175,0.18),_rgba(30,64,175,0.18)_2px,_transparent_2px,_transparent_6px)]" />
+
+      <main className="mx-auto max-w-5xl px-4 pb-16 pt-10">
+        {/* TIERS */}
+        <section>
+          <h2 className="text-sm font-semibold text-slate-100">
+            Built around how real anglers improve.
+          </h2>
+          <p className="mt-1 text-[11px] text-slate-400">
+            Learn the Pattern → Understand the Pattern → Interpret the
+            Environment.
+          </p>
+
+          <div className="mt-6 grid gap-3 text-xs md:grid-cols-3">
+            <div className="rounded-2xl border border-slate-800 bg-slate-950/90 p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                Pro
+              </p>
+              <p className="mt-1 text-sm font-semibold text-slate-100">
+                Learn the Pattern
+              </p>
+              <p className="mt-2 text-slate-300">
+                A clear Pattern of the Day built from weather, season, and broad
+                conditions — with offline-ready patterns.
+              </p>
+              <p className="mt-3 text-[11px] text-slate-400">
+                From $9.99/mo or $49/yr.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-slate-800 bg-slate-950/90 p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                Elite
+              </p>
+              <p className="mt-1 text-sm font-semibold text-slate-100">
+                Understand the Pattern
+              </p>
+              <p className="mt-2 text-slate-300">
+                A gameplan timeline and structured adjustments as the day and
+                conditions evolve.
+              </p>
+              <p className="mt-3 text-[11px] text-slate-400">
+                From $19.99/mo or $99/yr.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-emerald-500/70 bg-emerald-500/5 p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-300">
+                Vision
+              </p>
+              <p className="mt-1 text-sm font-semibold text-emerald-100">
+                Interpret the Environment
+              </p>
+              <p className="mt-2 text-emerald-50/90">
+                Vision Enhanced interpretation of sonar and surface photos,
+                layered on top of your current pattern.
+              </p>
+              <p className="mt-3 text-[11px] text-emerald-200">
+                From $29.99/mo or $149/yr.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* Day on the water + shoreline image */}
+        <section className="mt-12 grid gap-8 border-t border-slate-800 pt-10 md:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-100">
+              A real day on your lake, structured.
+            </h2>
+            <ul className="mt-4 space-y-3 text-xs text-slate-300">
+              <li>
+                <span className="font-semibold text-slate-100">
+                  1. Set up your Tacklebox.
+                </span>{" "}
+                Choose the baits you actually carry — patterns stay grounded in
+                your real gear.
+              </li>
+              <li>
+                <span className="font-semibold text-slate-100">
+                  2. Generate your Pattern of the Day.
+                </span>{" "}
+                SAGE interprets today&apos;s conditions and gives you one
+                disciplined approach instead of ten conflicting tips.
+              </li>
+              <li>
+                <span className="font-semibold text-slate-100">
+                  3. Fish the plan — and ask SAGE why.
+                </span>{" "}
+                Use SAGE to understand the reasoning, log catches, and adapt
+                without throwing away the pattern.
+              </li>
+              <li>
+                <span className="font-semibold text-slate-100">
+                  4. Use Vision when you&apos;re on a specific spot.
+                </span>{" "}
+                Upload sonar or surface photos and let Vision interpret depth,
+                cover, shade, and activity level where you&apos;re actually
+                fishing.
+              </li>
+            </ul>
+          </div>
+
+          <div className="flex items-center justify-center">
+            <div
+              className="h-56 w-full max-w-sm overflow-hidden rounded-3xl border border-slate-800 bg-cover bg-center"
+              style={{
+                // TODO: replace with real shoreline photo
+                backgroundImage: "url('/images/shorescape-evening.jpg')",
+              }}
+            >
+              <div className="flex h-full w-full items-end bg-gradient-to-t from-black/70 via-black/20 to-transparent p-4">
+                <p className="text-[11px] text-slate-100">
+                  Built for real lakes: wind, grass lines, shade, and the water
+                  that&apos;s actually in front of you — not studio-perfect
+                  screenshots.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Vision Founders + CTA */}
+        <section className="mt-12 border-t border-slate-800 pt-10">
+          <div className="grid gap-6 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+            <div className="rounded-3xl border border-emerald-500/70 bg-emerald-500/5 px-4 py-6 sm:px-6">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-300">
+                Vision Founders Rate
+              </p>
+              <p className="mt-2 text-sm font-semibold text-emerald-50">
+                $99/yr for life for the first 100 Vision Annual anglers.
+              </p>
+              <p className="mt-2 text-xs text-emerald-100">
+                Once you lock it in, your Vision price never increases and
+                always matches or beats future discounts. When the 100th spot is
+                claimed, the Founders program closes permanently.
+              </p>
+            </div>
+
+            <div className="rounded-3xl border border-slate-800 bg-slate-950/90 px-4 py-6 text-center sm:px-6">
+              <p className="text-sm font-semibold text-slate-100">
+                Ready to fish with structure instead of chaos?
+              </p>
+              <p className="mt-2 text-xs text-slate-300">
+                Start with Vision, set up your Tacklebox, and generate your
+                first Pattern of the Day built for your lake, your gear, and
+                your experience.
+              </p>
+              <div className="mt-5 flex flex-col items-center justify-center gap-3 sm:flex-row sm:justify-center">
+                <button
+                  type="button"
+                  onClick={handleStart}
+                  className="w-full rounded-full border border-emerald-400 bg-emerald-400 px-4 py-2 text-sm font-semibold text-black sm:w-auto"
+                >
+                  Get started
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePricing}
+                  className="w-full rounded-full border border-slate-700 bg-slate-950 px-4 py-2 text-sm font-semibold text-slate-100 sm:w-auto"
+                >
+                  See pricing
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Footer */}
+        <footer className="mt-10 border-t border-slate-900 pb-4 pt-4 text-[10px] text-slate-500">
+          <div className="flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-center">
+            <p>© {new Date().getFullYear()} AnglerIQ. All rights reserved.</p>
+            <p>
+              Built for anglers who care about understanding, not shortcuts.
+            </p>
+          </div>
+        </footer>
+      </main>
     </div>
   );
 };

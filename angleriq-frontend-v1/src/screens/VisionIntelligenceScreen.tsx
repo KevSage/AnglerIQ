@@ -18,7 +18,7 @@ const VisionIntelligenceScreen = () => {
   const { pattern, loading, error } = usePattern(tier);
   const [mode, setMode] = useState<VisionMode>("vision");
 
-  // Defensive tier gating
+  // Defensive tier gating — Vision tier only
   if (tier !== "vision") {
     return <Navigate to="/" replace />;
   }
@@ -26,7 +26,7 @@ const VisionIntelligenceScreen = () => {
   if (loading) {
     return (
       <ScreenContainer
-        title="Vision Intelligence Screen"
+        title="Vision Intelligence"
         tagline="Environmental Understanding — Elevated."
       >
         <div className="flex min-h-[40vh] items-center justify-center">
@@ -41,7 +41,7 @@ const VisionIntelligenceScreen = () => {
   if (error || !pattern) {
     return (
       <ScreenContainer
-        title="Vision Intelligence Screen"
+        title="Vision Intelligence"
         tagline="Environmental Understanding — Elevated."
       >
         <div className="flex min-h-[40vh] items-center justify-center">
@@ -60,16 +60,33 @@ const VisionIntelligenceScreen = () => {
 
   const hasSurface = !!surface;
   const hasSonar = !!sonar;
-  const hasVisionFusion = !!(analysis || approach);
+  const hasVisionCore = !!(analysis || approach);
+  const hasAnyVision = hasSurface || hasSonar || hasVisionCore;
 
-  const hasAnyVision = hasSurface || hasSonar || hasVisionFusion;
+  // Hybrid global + local panel copy (no numbers, no contradictions)
+  const hasLocalVision = hasAnyVision;
+  const localLine = hasLocalVision
+    ? "Local: Vision is interpreting this specific area from your latest surface and/or sonar inputs."
+    : "Local: No images yet. Upload a surface photo or sonar screenshot to see how this exact spot behaves.";
 
   if (!hasAnyVision) {
     return (
       <ScreenContainer
-        title="Vision Intelligence Screen"
+        title="Vision Intelligence"
         tagline="Environmental Understanding — Elevated."
       >
+        {/* Hybrid conditions + environment panel */}
+        <section className="mt-4 rounded-2xl border border-gray-700/70 bg-[#050608] px-4 py-3">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-300">
+            Conditions + Environment
+          </p>
+          <p className="mt-1 text-xs text-gray-200">
+            Global: Today&apos;s overall weather and seasonal cues are shaping
+            the current pattern.
+          </p>
+          <p className="mt-1 text-xs text-gray-400">{localLine}</p>
+        </section>
+
         <div className="mt-8 rounded-2xl border border-gray-700/70 bg-[#101010] px-4 py-6 text-center">
           <p className="text-xs text-gray-200">
             No sonar or surface images yet.
@@ -87,13 +104,13 @@ const VisionIntelligenceScreen = () => {
   const safeMode: VisionMode = (() => {
     if (mode === "surface" && !hasSurface) {
       if (hasSonar) return "sonar";
-      if (hasVisionFusion) return "vision";
+      if (hasVisionCore) return "vision";
     }
     if (mode === "sonar" && !hasSonar) {
       if (hasSurface) return "surface";
-      if (hasVisionFusion) return "vision";
+      if (hasVisionCore) return "vision";
     }
-    if (mode === "vision" && !hasVisionFusion) {
+    if (mode === "vision" && !hasVisionCore) {
       if (hasSurface) return "surface";
       if (hasSonar) return "sonar";
     }
@@ -127,11 +144,22 @@ const VisionIntelligenceScreen = () => {
 
   return (
     <ScreenContainer
-      title="Vision Intelligence Screen"
+      title="Vision Intelligence"
       tagline="Environmental Understanding — Elevated."
     >
+      {/* Hybrid conditions + environment panel */}
+      <section className="mb-4 mt-1 rounded-2xl border border-gray-700/70 bg-[#050608] px-4 py-3">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-300">
+          Conditions + Environment
+        </p>
+        <p className="mt-1 text-xs text-gray-200">
+          Global: Today&apos;s overall weather and seasonal cues are shaping the
+          current pattern.
+        </p>
+        <p className="mt-1 text-xs text-gray-400">{localLine}</p>
+      </section>
+
       <div className="vision-intel-root">
-        {" "}
         {/* Mode selector */}
         <div className="mb-4 rounded-full bg-[#050608] p-1">
           <div className="flex items-center gap-1">
@@ -149,18 +177,19 @@ const VisionIntelligenceScreen = () => {
               className={tabClasses("sonar", hasSonar)}
               onClick={() => hasSonar && setMode("sonar")}
             >
-              Sonar Enhanced
+              Subsurface Enhanced
             </button>
             <button
               type="button"
-              disabled={!hasVisionFusion}
-              className={tabClasses("vision", hasVisionFusion)}
-              onClick={() => hasVisionFusion && setMode("vision")}
+              disabled={!hasVisionCore}
+              className={tabClasses("vision", hasVisionCore)}
+              onClick={() => hasVisionCore && setMode("vision")}
             >
               Vision Enhanced
             </button>
           </div>
         </div>
+
         {/* Summary strip (works for all modes) */}
         <VisionSummaryStrip
           mode={safeMode}
@@ -169,6 +198,7 @@ const VisionIntelligenceScreen = () => {
           analysis={analysis}
           approach={approach}
         />
+
         {/* Mode-specific content */}
         <div className="mt-2 space-y-5">
           {safeMode === "surface" && surface && (
@@ -181,6 +211,34 @@ const VisionIntelligenceScreen = () => {
 
           {safeMode === "vision" && (
             <VisionFusionPanel analysis={analysis} approach={approach} />
+          )}
+        </div>
+
+        {/* Upload actions per tab (V1: simple, non-intrusive stubs) */}
+        <div className="mt-5 space-y-2 text-center">
+          {safeMode === "surface" && (
+            <button
+              type="button"
+              className="w-full rounded-full border border-emerald-500/60 bg-emerald-500/5 px-4 py-2 text-xs font-semibold text-emerald-100"
+            >
+              Upload new surface photo
+            </button>
+          )}
+          {safeMode === "sonar" && (
+            <button
+              type="button"
+              className="w-full rounded-full border border-sky-500/60 bg-sky-500/5 px-4 py-2 text-xs font-semibold text-sky-100"
+            >
+              Upload new sonar screenshot
+            </button>
+          )}
+          {safeMode === "vision" && (
+            <button
+              type="button"
+              className="w-full rounded-full border border-indigo-500/60 bg-indigo-500/5 px-4 py-2 text-xs font-semibold text-indigo-100"
+            >
+              Upload images to refresh Vision Enhanced analysis
+            </button>
           )}
         </div>
       </div>

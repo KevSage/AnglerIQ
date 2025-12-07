@@ -10,7 +10,12 @@ const PricingScreen: React.FC = () => {
       {/* Header */}
       <header className="mb-4 flex items-center justify-between">
         <div>
-          <h1 className="text-base font-semibold">Choose Your Plan</h1>
+          <h1 className="text-base font-semibold text-slate-100">
+            Choose Your Plan
+          </h1>
+          <p className="mt-1 text-xs text-slate-400">
+            All tiers include offline capability and SAGE guidance.
+          </p>
         </div>
         <button
           type="button"
@@ -24,12 +29,19 @@ const PricingScreen: React.FC = () => {
       {/* Annual / Founders banners */}
       <section className="space-y-2">
         <div className="rounded-2xl border border-emerald-500/50 bg-emerald-500/5 px-4 py-3 text-xs text-emerald-100">
-          <p className="font-semibold">Save 50% with Annual Plans</p>
+          <p className="font-semibold">Annual plans offer the best value.</p>
+          <p className="mt-1 text-[11px] text-emerald-200/90">
+            Lock in a full season of clarity at a lower yearly rate.
+          </p>
         </div>
 
         <div className="rounded-2xl border border-amber-400/70 bg-amber-400/10 px-4 py-3 text-xs text-amber-100">
           <p className="font-semibold">
-            Vision Founders Rate — $199.95/yr for life (first 100 anglers)
+            Vision Founders Rate — $99/yr for life
+          </p>
+          <p className="mt-1 text-[11px] text-amber-100/90">
+            Available for the first 100 Vision Annual anglers. Once you lock it
+            in, your Vision price never increases.
           </p>
         </div>
       </section>
@@ -39,39 +51,68 @@ const PricingScreen: React.FC = () => {
         {/* Pro */}
         <section className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4">
           <div className="flex items-baseline justify-between gap-2">
-            <h2 className="text-sm font-semibold text-slate-100">Pro</h2>
+            <div>
+              <h2 className="text-sm font-semibold text-slate-100">Pro</h2>
+              <p className="mt-1 text-[11px] text-slate-400">
+                Learn the Pattern.
+              </p>
+            </div>
             <div className="text-right text-xs text-slate-200">
-              <p className="font-semibold">$14.99/mo</p>
-              <p className="text-[11px] text-slate-400">$74.95/yr launch</p>
+              <p className="font-semibold">$9.99/mo</p>
+              <p className="text-[11px] text-slate-400">$49/yr</p>
             </div>
           </div>
-          <p className="mt-2 text-xs text-slate-300">Foundation clarity.</p>
+          <ul className="mt-3 space-y-1 text-[11px] text-slate-300">
+            <li>• Daily Pattern of the Day</li>
+            <li>• Core environmental logic</li>
+            <li>• Offline patterns and basic SAGE help</li>
+          </ul>
         </section>
 
         {/* Elite */}
         <section className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4">
           <div className="flex items-baseline justify-between gap-2">
-            <h2 className="text-sm font-semibold text-slate-100">Elite</h2>
+            <div>
+              <h2 className="text-sm font-semibold text-slate-100">Elite</h2>
+              <p className="mt-1 text-[11px] text-slate-400">
+                Understand the Pattern.
+              </p>
+            </div>
             <div className="text-right text-xs text-slate-200">
-              <p className="font-semibold">$24.99/mo</p>
-              <p className="text-[11px] text-slate-400">$124.95/yr launch</p>
+              <p className="font-semibold">$19.99/mo</p>
+              <p className="text-[11px] text-slate-400">$99/yr</p>
             </div>
           </div>
-          <p className="mt-2 text-xs text-slate-300">Tactical clarity.</p>
+          <ul className="mt-3 space-y-1 text-[11px] text-slate-300">
+            <li>• Everything in Pro</li>
+            <li>• Deeper pattern breakdowns and adjustments</li>
+            <li>• Expanded SAGE interpretation of your day</li>
+          </ul>
         </section>
 
         {/* Vision */}
         <section className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4">
           <div className="flex items-baseline justify-between gap-2">
-            <h2 className="text-sm font-semibold text-slate-100">Vision</h2>
+            <div>
+              <h2 className="text-sm font-semibold text-slate-100">Vision</h2>
+              <p className="mt-1 text-[11px] text-slate-400">
+                Interpret the Environment.
+              </p>
+            </div>
             <div className="text-right text-xs text-slate-200">
-              <p className="font-semibold">$39.99/mo</p>
-              <p className="text-[11px] text-slate-400">$199.95/yr launch</p>
+              <p className="font-semibold">$29.99/mo</p>
+              <p className="text-[11px] text-slate-400">$149/yr</p>
             </div>
           </div>
-          <p className="mt-2 text-xs text-slate-300">
-            Real-time interpretation.
-          </p>
+          <ul className="mt-3 space-y-1 text-[11px] text-slate-300">
+            <li>• Everything in Elite</li>
+            <li>
+              • Vision Enhanced interpretation from sonar and surface images
+            </li>
+            <li>
+              • On-the-water environmental insight built around your pattern
+            </li>
+          </ul>
         </section>
       </main>
     </ScreenContainer>

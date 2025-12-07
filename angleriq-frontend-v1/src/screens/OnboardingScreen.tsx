@@ -5,13 +5,6 @@ type OnboardingStep = "welcome" | "tier" | "personalization";
 
 type ExperienceLevel = "general" | "beginner" | "intermediate" | "advanced";
 
-type CoachingStyle =
-  | "Calm Guide"
-  | "Old School Pro"
-  | "Data Analyst"
-  | "Hype Coach"
-  | "Minimalist";
-
 const OnboardingScreen: React.FC = () => {
   const [step, setStep] = useState<OnboardingStep>("welcome");
   const [selectedTier, setSelectedTier] = useState<
@@ -19,9 +12,6 @@ const OnboardingScreen: React.FC = () => {
   >(null);
   const [experienceLevel, setExperienceLevel] =
     useState<ExperienceLevel | null>(null);
-  const [coachingStyle, setCoachingStyle] = useState<CoachingStyle | null>(
-    null
-  );
 
   const navigate = useNavigate();
 
@@ -38,10 +28,7 @@ const OnboardingScreen: React.FC = () => {
       if (experienceLevel) {
         localStorage.setItem("aiq_experience_level", experienceLevel);
       }
-      if (coachingStyle) {
-        localStorage.setItem("aiq_coaching_style", coachingStyle);
-      }
-      // NEW: onboarding completion flag
+      // Onboarding completion flag
       localStorage.setItem("aiq_onboarding_complete", "true");
       navigate("/", { replace: true });
     }
@@ -61,6 +48,10 @@ const OnboardingScreen: React.FC = () => {
         </header>
 
         <main className="mt-8">
+          <p className="mb-4 text-xs text-slate-300">
+            We&apos;ll ask just a couple of quick questions to set up your tier
+            and tailor SAGE to your experience on the water.
+          </p>
           <button
             type="button"
             onClick={goToNextStep}
@@ -81,6 +72,9 @@ const OnboardingScreen: React.FC = () => {
       <div className="min-h-screen px-4 py-4 text-slate-100">
         <header className="mb-4">
           <h1 className="text-lg font-semibold">Choose Your Tier</h1>
+          <p className="mt-1 text-xs text-slate-400">
+            You can change this later in Settings.
+          </p>
         </header>
 
         <main className="space-y-3 text-xs">
@@ -96,7 +90,8 @@ const OnboardingScreen: React.FC = () => {
           >
             <p className="text-sm font-semibold text-slate-100">Pro</p>
             <p className="mt-1 text-xs text-slate-300">
-              Clear and reliable patterns based on today’s conditions.
+              Learn the Pattern — clear, disciplined patterns based on
+              today&apos;s conditions.
             </p>
           </button>
 
@@ -112,7 +107,8 @@ const OnboardingScreen: React.FC = () => {
           >
             <p className="text-sm font-semibold text-slate-100">Elite</p>
             <p className="mt-1 text-xs text-slate-300">
-              Automated interpretation with a full gameplan and adjustments.
+              Understand the Pattern — a full gameplan and structured
+              adjustments throughout the day.
             </p>
           </button>
 
@@ -128,8 +124,8 @@ const OnboardingScreen: React.FC = () => {
           >
             <p className="text-sm font-semibold text-slate-100">Vision</p>
             <p className="mt-1 text-xs text-slate-300">
-              Real-time environmental interpretation using sonar and surface
-              cues.
+              Interpret the Environment — Vision Enhanced insight from sonar and
+              surface images around your current pattern.
             </p>
           </button>
 
@@ -152,12 +148,15 @@ const OnboardingScreen: React.FC = () => {
   }
 
   // ─────────────────────────────────────────
-  // Step 3 — Personalization
+  // Step 3 — Personalization (Experience only in V1)
   // ─────────────────────────────────────────
   return (
     <div className="min-h-screen px-4 py-4 text-slate-100">
       <header className="mb-4">
-        <h1 className="text-lg font-semibold">Personalize your Guidance</h1>
+        <h1 className="text-lg font-semibold">Personalize Your Guidance</h1>
+        <p className="mt-1 text-xs text-slate-400">
+          SAGE will match its tone and level of detail to your experience.
+        </p>
       </header>
 
       <main className="space-y-6 text-xs">
@@ -165,6 +164,10 @@ const OnboardingScreen: React.FC = () => {
         <section>
           <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
             Experience Level
+          </p>
+          <p className="mb-3 text-[11px] text-slate-300">
+            This doesn&apos;t change the pattern engine — it only changes how
+            SAGE explains things.
           </p>
           <div className="flex flex-wrap gap-2">
             {(
@@ -192,45 +195,13 @@ const OnboardingScreen: React.FC = () => {
           </div>
         </section>
 
-        {/* Coaching Style */}
-        <section>
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-            Coaching Style
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {(
-              [
-                "Calm Guide",
-                "Old School Pro",
-                "Data Analyst",
-                "Hype Coach",
-                "Minimalist",
-              ] as CoachingStyle[]
-            ).map((value) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setCoachingStyle(value)}
-                className={[
-                  "rounded-full border px-3 py-1 text-[11px]",
-                  coachingStyle === value
-                    ? "border-emerald-400 bg-slate-900 text-slate-100"
-                    : "border-slate-700 bg-slate-950 text-slate-300",
-                ].join(" ")}
-              >
-                {value}
-              </button>
-            ))}
-          </div>
-        </section>
-
         <button
           type="button"
           onClick={goToNextStep}
-          disabled={!experienceLevel || !coachingStyle}
+          disabled={!experienceLevel}
           className={[
             "mt-4 w-full rounded-full px-3 py-2 text-[11px] font-medium",
-            experienceLevel && coachingStyle
+            experienceLevel
               ? "border border-emerald-400 bg-emerald-400 text-black"
               : "border border-slate-700 bg-slate-900 text-slate-500",
           ].join(" ")}

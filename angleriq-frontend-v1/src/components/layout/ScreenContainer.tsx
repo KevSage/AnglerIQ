@@ -19,11 +19,29 @@ const ScreenContainer = ({
     <div
       className={`min-h-screen w-full bg-black text-white px-4 pb-10 ${className}`}
     >
-      {/* Header Section */}
+      {/* Global Brand Header (AIQ + tagline) */}
+      <header className="flex items-center gap-3 pt-6 pb-4">
+        {/* Circle AIQ mark */}
+        <div className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-600/70 bg-black">
+          <span className="text-[11px] font-semibold tracking-[0.18em]">
+            AIQ
+          </span>
+        </div>
+
+        {/* Brand text */}
+        <div className="flex flex-col">
+          <span className="text-sm font-semibold text-white">AnglerIQ</span>
+          <span className="text-[10px] tracking-[0.18em] text-slate-400 uppercase">
+            Environmental Understanding — Elevated and Interpreted.
+          </span>
+        </div>
+      </header>
+
+      {/* Per-screen Title / Tagline (optional) */}
       {(title || tagline) && (
-        <header className="pt-8 pb-4 text-center">
+        <section className="pb-3">
           {title && (
-            <h1 className="text-xl font-semibold tracking-wide text-white">
+            <h1 className="text-lg font-semibold tracking-wide text-white">
               {title}
             </h1>
           )}
@@ -33,7 +51,7 @@ const ScreenContainer = ({
               {tagline}
             </p>
           )}
-        </header>
+        </section>
       )}
 
       {/* Main Content */}

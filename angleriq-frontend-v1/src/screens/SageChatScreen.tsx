@@ -34,7 +34,7 @@ const SageChatScreen: React.FC = () => {
     return (
       <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4">
         <div className="rounded-xl border border-slate-800 bg-slate-900/80 px-4 py-3 text-sm text-slate-300">
-          Interpreting your Pattern-of-the-Moment…
+          Interpreting today&apos;s conditions…
         </div>
       </div>
     );
@@ -53,7 +53,7 @@ const SageChatScreen: React.FC = () => {
 
   const p = pattern as PatternResponse;
 
-  // Preferences from localStorage (Control Center)
+  // Experience level (V1-only personalization in Control Center)
   const experienceLevel =
     (localStorage.getItem("aiq_experience_level") as
       | "general"
@@ -62,31 +62,19 @@ const SageChatScreen: React.FC = () => {
       | "advanced"
       | null) ?? "general";
 
-  const coachingStyle =
-    (localStorage.getItem("aiq_coaching_style") as
-      | "Calm Guide"
-      | "Old School Pro"
-      | "Data Analyst"
-      | "Hype Coach"
-      | "Minimalist"
-      | null) ?? "Calm Guide";
+  // Coaching style is V2 in the UI, but we keep a safe default
+  // in the payload for backward compatibility.
+  const coachingStyle = "Calm Guide";
 
-  const preferredStylesRaw =
-    localStorage.getItem("aiq_preferred_styles") ?? "[]";
+  // Confidence Spectrum (High / Low confidence baits)
   const highConfidenceRaw =
     localStorage.getItem("aiq_high_confidence_baits") ?? "[]";
   const lowConfidenceRaw =
     localStorage.getItem("aiq_low_confidence_baits") ?? "[]";
 
-  let preferredStyles: string[] = [];
   let highConfidenceBaits: string[] = [];
   let lowConfidenceBaits: string[] = [];
 
-  try {
-    preferredStyles = JSON.parse(preferredStylesRaw);
-  } catch {
-    preferredStyles = [];
-  }
   try {
     highConfidenceBaits = JSON.parse(highConfidenceRaw);
   } catch {
@@ -116,8 +104,9 @@ const SageChatScreen: React.FC = () => {
       },
       preferences: {
         experience_level: experienceLevel,
-        coaching_style: coachingStyle,
-        preferred_styles: preferredStyles,
+        coaching_style: coachingStyle, // kept for backend compatibility
+        // V1: no preferred styles / bans; SAGE uses Confidence Spectrum only.
+        preferred_styles: [],
         high_confidence_baits: highConfidenceBaits,
         low_confidence_baits: lowConfidenceBaits,
       },
@@ -156,9 +145,13 @@ const SageChatScreen: React.FC = () => {
       <header className="mb-3 flex items-center justify-between">
         <div>
           <h1 className="text-base font-semibold text-slate-100">SAGE</h1>
-          {isVision && hasVisionAnalysis && (
+          {isVision && hasVisionAnalysis ? (
             <p className="mt-1 text-xs text-slate-400">
-              Vision Enhanced Analysis Active
+              Vision Enhanced analysis is available for this area.
+            </p>
+          ) : (
+            <p className="mt-1 text-xs text-slate-400">
+              Ask about today&apos;s Pattern of the Day or your next move.
             </p>
           )}
         </div>
@@ -185,7 +178,7 @@ const SageChatScreen: React.FC = () => {
         <div className="mt-1 grid grid-cols-1 gap-2 sm:grid-cols-2">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-              Pattern-of-the-Moment
+              Pattern of the Day
             </p>
             <p className="mt-1 text-[11px] text-slate-100">
               {patternTechnique}
@@ -204,7 +197,8 @@ const SageChatScreen: React.FC = () => {
       <main className="flex-1 space-y-2 overflow-y-auto rounded-2xl border border-slate-800 bg-slate-950/80 p-3 text-xs text-slate-100">
         {messages.length === 0 && (
           <p className="text-slate-400">
-            Ask SAGE anything about today’s conditions or your approach.
+            Ask SAGE about today&apos;s conditions, your current approach, or
+            how to adjust as the day changes.
           </p>
         )}
 
@@ -244,7 +238,7 @@ const SageChatScreen: React.FC = () => {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask SAGE about your approach…"
+          placeholder="Ask SAGE about your approach, today’s conditions, or what to try next…"
           className="h-20 w-full resize-none rounded-2xl border border-slate-800 bg-slate-950/80 px-3 py-2 text-xs text-slate-100 outline-none focus:border-emerald-400"
         />
 
@@ -262,7 +256,7 @@ const SageChatScreen: React.FC = () => {
               onClick={handleChangeSettings}
               className="rounded-full border border-slate-700 bg-slate-950 px-3 py-1 text-[11px] font-medium text-slate-200"
             >
-              Change Settings
+              Adjust Preferences
             </button>
           </div>
 
