@@ -50,6 +50,7 @@ export type PatternResponse = {
   pattern_of_the_moment: string;
   depth_zone: string;
   technique: string;
+  pattern_blurb?: string;
   supporting_lures: string[];
   gameplan?: GameplanBlock[]; // Elite + Vision
   adjustments?: AdjustmentBlock[]; // Elite + Vision
@@ -61,6 +62,11 @@ export type PatternResponse = {
     clarity_estimate?: string;
     season_phase?: string;
   };
+  // 🔹 NEW FIELDS (match backend)
+  primary_technique?: string | null;
+  featured_lure_name?: string | null;
+  featured_lure_family?: string | null;
+  pattern_summary?: string | null;
   vision?: {
     surface_enhanced?: SurfaceBlock;
     sonar_enhanced?: SonarBlock;

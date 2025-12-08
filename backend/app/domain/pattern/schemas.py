@@ -92,7 +92,11 @@ class ProPatternResponse(BaseModel):
     lure_setups: List["LureSetup"]
     conditions: Dict[str, Any]
     notes: str
-
+  # 🔹 NEW FIELDS (additive, all optional)
+    primary_technique: Optional[str] = None
+    featured_lure_name: Optional[str] = None
+    featured_lure_family: Optional[str] = None  # e.g. "chatterbait", "texas_rig", "jerkbait"
+    pattern_summary: Optional[str] = None       # Pattern blurb for UI
 
 class ElitePatternRequest(ProPatternRequest):
     """

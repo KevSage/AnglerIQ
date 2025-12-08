@@ -541,6 +541,15 @@ def build_pro_pattern(req: ProPatternRequest) -> ProPatternResponse:
         "Pro pattern generated using rules-based logic, current weather, and basic "
         "environmental context for this location."
     )
+    
+    primary_technique = "Bottom-Contact Dragging"  # umbrella label
+    featured_lure_name = "Texas-rigged finesse worm"    
+    featured_lure_family = "texas_rig"        
+    pattern_summary = (
+    "Today’s stable conditions and moderate clarity favor a bottom-contact dragging "
+    "presentation. A Texas-rigged finesse worm lets you cover key structure slowly, "
+    "keeping the bait in the strike zone without overpowering pressured fish."
+)
 
     return ProPatternResponse(
         phase=phase,
@@ -552,5 +561,9 @@ def build_pro_pattern(req: ProPatternRequest) -> ProPatternResponse:
         lure_setups=lure_setups,
         conditions=conditions,
         notes=notes,
+        primary_technique=primary_technique,
+        featured_lure_name=featured_lure_name,
+        featured_lure_family=featured_lure_family,
+        pattern_summary= "Testing",
     )
    
