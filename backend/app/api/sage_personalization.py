@@ -2,18 +2,65 @@
 
 from __future__ import annotations
 
-from typing import List, Tuple, TYPE_CHECKING
+from typing import List, Tuple, TYPE_CHECKING, Optional, Any
 
 if TYPE_CHECKING:
-    # Type-only import to avoid runtime circular imports.
     from app.api.sage import SagePreferences
+
+
+# ---------- Normalizers / helpers ----------
+
+
+def _norm_experience(prefs: "SagePreferences") -> str:
+    """
+    Normalize experience level so we can gracefully handle legacy values.
+    Canonical set: general, beginner, intermediate, advanced.
+    Legacy 'agnostic' is treated as 'general'.
+    """
+    raw = getattr(prefs, "experience_level", "general") or "general"
+    if raw == "agnostic":
+        return "general"
+    return raw
+
+
+def _norm_high_confidence_baits(prefs: "SagePreferences") -> List[str]:
+    """
+    Treat confidence_baits as the source of high-confidence baits for now.
+    (Future: can add dedicated high_confidence_baits field and merge.)
+    """
+    raw = getattr(prefs, "confidence_baits", None)
+    if not raw:
+        return []
+    return [b.strip() for b in raw if isinstance(b, str) and b.strip()]
+
+
+def _norm_low_confidence_items(prefs: "SagePreferences") -> List[str]:
+    """
+    Treat banned_techniques as low-confidence / optional techniques for wording only.
+    We DO NOT actually ban or filter anything in the engines.
+    """
+    raw = getattr(prefs, "banned_techniques", None)
+    if not raw:
+        return []
+    return [b.strip() for b in raw if isinstance(b, str) and b.strip()]
+
+
+def _norm_coaching_style(prefs: "SagePreferences") -> str:
+    """
+    Normalize coaching style. Legacy 'agnostic' == canonical 'general'.
+    """
+    raw = getattr(prefs, "coaching_style", "general") or "general"
+    if raw == "agnostic":
+        return "general"
+    return raw
 
 
 # ---------- Line builders (shared) ----------
 
 
-def _build_experience_line(prefs: "SagePreferences") -> str | None:
-    exp = prefs.experience_level
+def _build_experience_line(prefs: "SagePreferences") -> Optional[str]:
+    exp = _norm_experience(prefs)
+
     if exp == "beginner":
         return (
             "I'll keep the language simple and focus on clear, practical steps "
@@ -29,118 +76,79 @@ def _build_experience_line(prefs: "SagePreferences") -> str | None:
             "I'll speak more like a tournament partner—short on fluff, comfortable "
             "with depth, phase, and pattern jargon."
         )
-    # agnostic/general → no extra line
+
+    # general → no explicit line
     return None
 
 
-def _build_coaching_line(prefs: "SagePreferences") -> str | None:
-    style = prefs.coaching_style
+def _build_coaching_line(prefs: "SagePreferences") -> Optional[str]:
+    style = _norm_coaching_style(prefs)
+
     if style == "calm_guide":
-        return (
-            "I'll keep the tone steady and reassuring, walking you through the "
-            "pattern one step at a time."
-        )
+        return "I'll keep the tone steady and reassuring, walking you through the pattern one step at a time."
     if style == "old_school_pro":
         return "I'll be a bit more blunt and direct so you always know the next move."
     if style == "data_analyst":
-        return (
-            "I'll lean into the signals—conditions, structure, and trends—to explain "
-            "*why* each move makes sense."
-        )
+        return "I'll lean into the signals—conditions, structure, and trends—to explain why each move makes sense."
     if style == "hype_coach":
-        return (
-            "I'll keep the energy up and focus on what gives you the best shot at a "
-            "confidence bite."
-        )
+        return "I'll keep the energy up while still staying disciplined about what actually matters."
     if style == "minimalist":
-        return (
-            "I'll keep things tight and to the point, focusing on only what actually "
-            "matters."
-        )
-    # agnostic → no extra line
+        return "I'll keep things tight and to the point, focusing only on what actually matters out there."
+
+    # general → no explicit line
     return None
 
 
-def _build_style_emphasis_line(prefs: "SagePreferences") -> str | None:
-    styles = [s for s in prefs.preferred_styles if s != "agnostic"]
-    if not styles:
-        return None
-
-    # Hybrid B/C: noticeable but not overwhelming
-    if "power" in styles and "offshore" in styles:
-        return (
-            "I'll lean a bit harder into power moves and offshore structure when "
-            "either path is reasonable."
-        )
-    if "power" in styles:
-        return "I'll favor power-style approaches when there are multiple good options."
-    if "finesse" in styles:
-        return "I'll highlight finesse options any time they make sense for the conditions."
-    if "grass" in styles:
-        return (
-            "I'll call out grass edges and vegetation lines whenever they naturally "
-            "fit the pattern."
-        )
-    if "bank" in styles or "dock" in styles:
-        return (
-            "I'll give extra attention to bank lines and dock targets when the "
-            "pattern supports it."
-        )
-    if "offshore" in styles:
-        return (
-            "I'll nudge you toward offshore structure and breaks when the pattern "
-            "allows for it."
-        )
-
-    return None
-
-
-def _build_confidence_baits_line(prefs: "SagePreferences") -> str | None:
-    if not prefs.confidence_baits:
-        return None
-    baits = [b.strip() for b in prefs.confidence_baits if b.strip()]
+def _build_high_confidence_line(prefs: "SagePreferences") -> Optional[str]:
+    baits = _norm_high_confidence_baits(prefs)
     if not baits:
         return None
+
     if len(baits) == 1:
-        return f"If the bite feels off, we can lean on your confidence bait: {baits[0]}."
+        return f"If the bite feels off, we can lean on your high-confidence bait: {baits[0]}."
     if len(baits) == 2:
         return (
-            f"If things get weird, we can fall back on your confidence baits like "
+            f"If things get weird, we can fall back on your high-confidence baits like "
             f"{baits[0]} and {baits[1]}."
         )
-    # 3+ baits
+
     head = ", ".join(baits[:2])
     tail = baits[2]
     return (
-        f"If conditions shift, we can rotate through your confidence baits like "
-        f"{head}, and {tail} to stay grounded."
+        f"If conditions shift, we can rotate through your high-confidence baits like "
+        f"{head}, and {tail} so you stay grounded in what you fish best."
     )
 
 
-def _build_banned_techniques_line(prefs: "SagePreferences") -> str | None:
-    if not prefs.banned_techniques:
-        return None
-    banned = [b.strip() for b in prefs.banned_techniques if b.strip()]
-    if not banned:
+def _build_low_confidence_line(prefs: "SagePreferences") -> Optional[str]:
+    """
+    Reframe 'banned techniques' as low-confidence / optional tools.
+    We never remove them from the plan; we only frame them differently.
+    """
+    items = _norm_low_confidence_items(prefs)
+    if not items:
         return None
 
-    # Hybrid B/C: clearly state avoidance, but still advisory-only
-    if len(banned) == 1:
-        return f"I'll avoid pushing {banned[0]} as a primary suggestion."
-    if len(banned) == 2:
+    if len(items) == 1:
         return (
-            f"I'll steer clear of leaning on {banned[0]} and {banned[1]} unless "
-            "there's no better option."
+            f"I'll treat {items[0]} as a low-confidence option—something we can reach for "
+            f"only if conditions really point that direction."
         )
-    head = ", ".join(banned[:2])
-    tail = banned[2]
+    if len(items) == 2:
+        return (
+            f"I'll treat techniques like {items[0]} and {items[1]} as optional, "
+            f"so the plan stays centered on what you actually like to fish."
+        )
+
+    head = ", ".join(items[:2])
+    tail = items[2]
     return (
-        f"I'll de-emphasize techniques like {head}, and {tail} so the plan stays "
-        "aligned with what you actually enjoy fishing."
+        f"I'll frame techniques like {head}, and {tail} as optional growth tools "
+        f"rather than core pieces of the plan."
     )
 
 
-# ---------- Canonical helpers ----------
+# ---------- Line-based personalization (for /sage/chat, etc.) ----------
 
 
 def apply_personalization_lines(
@@ -149,11 +157,9 @@ def apply_personalization_lines(
 ) -> list[str]:
     """
     Hybrid B/C intensity for line-based replies (like /sage/chat):
-
-    - Always preserves the core pattern/context lines.
-    - Adds 1–4 short lines describing how SAGE will talk,
-      with noticeable but not overwhelming emphasis.
-    - TEXT ONLY. This must never change engines, tiers, or pattern logic.
+    - Always preserves the core lines.
+    - Adds 1–4 short lines describing how SAGE will talk and what it will emphasize.
+    - TEXT ONLY. No engine, tier, or pattern changes.
     """
     extra: list[str] = []
 
@@ -165,23 +171,84 @@ def apply_personalization_lines(
     if coach_line:
         extra.append(coach_line)
 
-    style_line = _build_style_emphasis_line(prefs)
-    if style_line:
-        extra.append(style_line)
+    high_conf_line = _build_high_confidence_line(prefs)
+    if high_conf_line:
+        extra.append(high_conf_line)
 
-    conf_line = _build_confidence_baits_line(prefs)
-    if conf_line:
-        extra.append(conf_line)
-
-    banned_line = _build_banned_techniques_line(prefs)
-    if banned_line:
-        extra.append(banned_line)
+    low_conf_line = _build_low_confidence_line(prefs)
+    if low_conf_line:
+        extra.append(low_conf_line)
 
     if not extra:
         return base_lines
 
-    # Keep base lines together, then add a small divider + personalization flavor
     return base_lines + ["", "Personalization:", *extra]
+
+
+# ---------- Pattern-based personalization (for /assistant/ask) ----------
+
+
+def _build_coaching_intro(prefs: "SagePreferences") -> Optional[str]:
+    """
+    Short one-liner that can sit in front of the main pattern advice
+    to set the coaching tone.
+    """
+    style = _norm_coaching_style(prefs)
+    exp = _norm_experience(prefs)
+
+    # We keep this subtle and consistent with AnglerIQ's premium tone.
+    if style == "calm_guide":
+        return "Let’s keep this simple and steady—here’s how I’d run this pattern."
+    if style == "old_school_pro":
+        return "Here’s the straight-shot way I’d fish this pattern."
+    if style == "data_analyst":
+        return "Based on how the conditions stack up, here’s the cleanest way to run this pattern."
+    if style == "hype_coach":
+        return "Good news—this setup has real bite potential. Here’s how I’d give it a fair run."
+    if style == "minimalist":
+        return "Here’s the essential way to test this pattern without overcomplicating it."
+
+    # Fall back to a very light experience-level aware intro.
+    if exp == "beginner":
+        return "Here’s a clear, step-by-step way to fish this pattern without overthinking it."
+    if exp == "advanced":
+        return "Here’s how I’d treat this pattern if we were fishing it like a short derby window."
+
+    # general/intermediate → no special intro
+    return None
+
+
+def _build_personalization_summary(prefs: "SagePreferences") -> Optional[str]:
+    """
+    Build a compact personalization summary paragraph that describes:
+      - how SAGE will talk
+      - how it will treat high- and low-confidence tools
+
+    This sits in a 'Personalization:' section at the end of the answer.
+    """
+    pieces: list[str] = []
+
+    exp_line = _build_experience_line(prefs)
+    if exp_line:
+        pieces.append(exp_line)
+
+    coach_line = _build_coaching_line(prefs)
+    if coach_line:
+        pieces.append(coach_line)
+
+    high_conf_line = _build_high_confidence_line(prefs)
+    if high_conf_line:
+        pieces.append(high_conf_line)
+
+    low_conf_line = _build_low_confidence_line(prefs)
+    if low_conf_line:
+        pieces.append(low_conf_line)
+
+    if not pieces:
+        return None
+
+    # Join into 1–2 compact sentences.
+    return " ".join(pieces)
 
 
 def personalize_sage_answer(
@@ -190,46 +257,37 @@ def personalize_sage_answer(
     prefs: "SagePreferences",
 ) -> Tuple[str, List[str]]:
     """
-    For pattern-based answers (generate_advice):
+    Step 2 personalization for pattern-based SAGE answers (/assistant/ask):
 
-    - Keep the core SAGE paragraphs.
-    - Append a short 'Personalization' section describing how SAGE
-      will bias tone and bait/technique emphasis.
-    - Key points stay the same for now (Step 1).
-    - TEXT ONLY. This must never change engines, tiers, or pattern logic.
+    - Keeps the core SAGE paragraphs from generate_advice intact.
+    - Optionally adds a short coaching-style intro line.
+    - Optionally appends a 'Personalization' section describing how SAGE will
+      bias tone and confidence framing.
+    - Key points stay the same for now (we may extend later if needed).
+
+    TEXT ONLY. This MUST NOT change:
+    - pattern engines,
+    - depth logic,
+    - tiers,
+    - pricing,
+    - or Vision behavior.
     """
-    extra: list[str] = []
+    paragraphs: list[str] = []
 
-    exp_line = _build_experience_line(prefs)
-    if exp_line:
-        extra.append(exp_line)
+    # 1) Optional coaching intro
+    intro = _build_coaching_intro(prefs)
+    if intro:
+        paragraphs.append(intro)
 
-    coach_line = _build_coaching_line(prefs)
-    if coach_line:
-        extra.append(coach_line)
+    # 2) Core SAGE answer from the rules engine
+    paragraphs.append(answer)
 
-    style_line = _build_style_emphasis_line(prefs)
-    if style_line:
-        extra.append(style_line)
+    # 3) Optional Personalization summary
+    personalization_summary = _build_personalization_summary(prefs)
+    if personalization_summary:
+        paragraphs.append("Personalization:\n" + personalization_summary)
 
-    conf_line = _build_confidence_baits_line(prefs)
-    if conf_line:
-        extra.append(conf_line)
+    personalized_answer = "\n\n".join(paragraphs)
 
-    banned_line = _build_banned_techniques_line(prefs)
-    if banned_line:
-        extra.append(banned_line)
-
-    if not extra:
-        return answer, key_points
-
-    personalization_paragraph = " ".join(extra)
-
-    personalized_answer = (
-        answer
-        + "\n\n"
-        + "Personalization:\n"
-        + personalization_paragraph
-    )
-
+    # Key points remain unchanged in Step 2.
     return personalized_answer, key_points

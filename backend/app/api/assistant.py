@@ -60,63 +60,62 @@ def assistant_ask(payload: AssistantAskRequest) -> AssistantAskResponse:
     High-level "assistant" endpoint that:
       1) Builds the appropriate pattern based on tier.
       2) Runs the SAGE rules engine to produce coaching text.
-      3) Applies personalization (tone + emphasis) via SagePreferences.
-      4) Returns a rich `pattern_summary` block.
+      3) Applies personalization (tone + confidence framing) via SagePreferences.
+      4) Returns a rich `pattern_summary` block that mirrors the pattern engine output.
 
-    IMPORTANT: `pattern_summary` is built from the full pattern response,
-    so it always contains keys like `phase`, `depth_zone`,
-    `recommended_lures`, `recommended_targets`, `strategy_tips`,
-    `gameplan`, `adjustments`, and `conditions`.
+    IMPORTANT:
+    - `pattern_summary` is built from the full pattern response,
+      so it always contains keys like `phase`, `depth_zone`,
+      `recommended_lures`, `recommended_targets`, `strategy_tips`,
+      `gameplan`, `adjustments`, and `conditions`.
+    - Personalization is TEXT ONLY and does NOT modify any engine behavior.
     """
 
     # --- 1) Build the underlying pattern ------------------------------
 
-    tier = payload.tier  # <- this was missing, causing NameError
+    tier = payload.tier
 
     if tier == "pro":
         req = ProPatternRequest(**payload.pattern)
         pattern = build_pro_pattern(req)
-        summary = pattern.dict()
+        # Using model_dump to avoid Pydantic v2 deprecation warnings
+        summary: Dict[str, Any] = pattern.model_dump()
 
     elif tier in ("elite", "vision"):
         # Vision currently shares the Elite request/response shape,
         # so we reuse ElitePatternRequest / build_elite_pattern here.
         req = ElitePatternRequest(**payload.pattern)
         pattern = build_elite_pattern(req)
-        summary = pattern.dict()
+        summary = pattern.model_dump()
 
     else:
         raise HTTPException(status_code=400, detail=f"Unsupported tier: {tier}")
 
-    # --- 2) Run SAGE rules engine ------------------------------------
+    # --- 2) Run SAGE rules engine (base advice) -----------------------
 
     base_answer, key_points, meta = generate_advice(
         pattern=summary,
         question=payload.question,
     )
 
-    # --- 3) Apply personalization (tone + emphasis, text-only) -------
+    # --- 3) Apply personalization (tone + confidence framing) --------
 
     prefs = payload.preferences or SagePreferences()
-    personalized_answer, personalized_key_points = personalize_sage_answer(
+    personalized_answer, _personalized_key_points = personalize_sage_answer(
         base_answer,
         key_points,
         prefs,
     )
 
-    # --- 4) Build pattern_summary for the UI/tests -------------------
+    # NOTE:
+    # We are not yet exposing key_points or meta through this endpoint.
+    # `pattern_summary` remains the pure pattern engine output for now.
 
-    pattern_summary: Dict[str, Any] = {
-        **summary,
-        "sage_key_points": personalized_key_points,
-        "sage_meta": meta,
-    }
-
-    # --- 5) Return the combined response -----------------------------
+    # --- 4) Return the combined response -----------------------------
 
     return AssistantAskResponse(
         tier=tier,
         question=payload.question,
         answer=personalized_answer,
-        pattern_summary=pattern_summary,
+        pattern_summary=summary,
     )

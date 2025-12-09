@@ -1,15 +1,18 @@
 # app/api/sage.py
+
 from __future__ import annotations
 
 from typing import Any, Dict, Optional, List, Literal
 
 from fastapi import APIRouter
 from pydantic import BaseModel
-from app.api.sage_personalization import apply_personalization_lines
+
+from .sage_personalization import apply_personalization_lines
 
 router = APIRouter(prefix="/sage", tags=["sage"])
 
 # ---------- Context models ----------
+
 
 class SagePatternContext(BaseModel):
     """
@@ -56,11 +59,14 @@ class SageContext(BaseModel):
 class SagePreferences(BaseModel):
     """
     Personalization knobs for SAGE.
-    These DO NOT affect the underlying Pro/Elite/Vision engines –
-    they only change how SAGE speaks and what it emphasizes.
+
+    IMPORTANT:
+    - These DO NOT affect the underlying Pro/Elite/Vision engines.
+    - They only change how SAGE speaks and what it emphasizes in text.
     """
 
     # Experience level: affects level of detail and jargon
+    # Legacy 'agnostic' is treated as 'general' in the personalization layer.
     experience_level: Literal["agnostic", "beginner", "intermediate", "advanced"] = "agnostic"
 
     # Coaching "archetype" / style
@@ -69,34 +75,29 @@ class SagePreferences(BaseModel):
         "calm_guide",        # steady, reassuring, explanatory
         "old_school_pro",    # blunt, confident, no-nonsense
         "data_analyst",      # more logic-y, references signals
-        "hype_coach",        # energetic, motivational
+        "hype_coach",        # measured energy, still premium
         "minimalist"         # short, direct, no fluff
     ] = "agnostic"
 
-    # Preferred fishing styles (power/finesse/etc.)
-    preferred_styles: List[Literal[
-        "agnostic",
-        "power",
-        "finesse",
-        "offshore",
-        "bank",
-        "dock",
-        "grass"
-    ]] = ["agnostic"]
+    # Legacy field, no longer used for logic, but kept for compatibility.
+    # Personalization currently ignores this in the canon.
+    preferred_styles: List[str] = ["agnostic"]
 
-    # Optional “confidence” and “no confidence” hooks for SAGE wording only.
-    # These are *free-form* strings so we don't have to touch the rules engine yet.
+    # Confidence Spectrum (text-only for now, via personalization layer):
+    # confidence_baits → high-confidence baits
+    # banned_techniques → low-confidence / optional techniques
     confidence_baits: Optional[List[str]] = None
     banned_techniques: Optional[List[str]] = None
 
 
 # ---------- Chat request/response ----------
 
+
 class SageChatRequest(BaseModel):
     message: str
     context: Optional[SageContext] = None
-    user_name: Optional[str] = None
-    preferences: Optional[SagePreferences] = None
+    user_name: Optional[str] = None  # name from frontend, optional
+    preferences: Optional[SagePreferences] = None  # Step 2: wired in
 
 
 class SageChatResponse(BaseModel):
@@ -107,159 +108,7 @@ class SageChatResponse(BaseModel):
     preferences_used: Optional[SagePreferences] = None
 
 
-# ---------- Personalization helpers (Step 2: hybrid B/C intensity) ----------
-
-def _summarize_pattern_context(pattern: SagePatternContext) -> Optional[str]:
-    bits: list[str] = []
-    if pattern.phase:
-        bits.append(f"phase={pattern.phase}")
-    if pattern.depth_zone:
-        bits.append(f"depth_zone={pattern.depth_zone}")
-    if pattern.tier:
-        bits.append(f"tier={pattern.tier}")
-    if not bits:
-        return None
-    return "Pattern context: " + ", ".join(bits)
-
-
-def _build_experience_line(prefs: SagePreferences) -> Optional[str]:
-    exp = prefs.experience_level
-    if exp == "beginner":
-        return (
-            "I'll keep the language simple and focus on clear, practical steps "
-            "without too much jargon."
-        )
-    if exp == "intermediate":
-        return (
-            "I'll assume you know the basics and give you a bit more tactical detail "
-            "without overcomplicating it."
-        )
-    if exp == "advanced":
-        return (
-            "I'll speak more like a tournament partner—short on fluff, comfortable "
-            "with depth, phase, and pattern jargon."
-        )
-    # agnostic → no extra line
-    return None
-
-
-def _build_coaching_line(prefs: SagePreferences) -> Optional[str]:
-    style = prefs.coaching_style
-    if style == "calm_guide":
-        return "I'll keep the tone steady and reassuring, walking you through the pattern one step at a time."
-    if style == "old_school_pro":
-        return "I'll be a bit more blunt and direct so you always know the next move."
-    if style == "data_analyst":
-        return "I'll lean into the signals—conditions, structure, and trends—to explain *why* each move makes sense."
-    if style == "hype_coach":
-        return "I'll keep the energy up and focus on what gives you the best shot at a confidence bite."
-    if style == "minimalist":
-        return "I'll keep things tight and to the point, focusing on only what actually matters."
-    # agnostic → no extra line
-    return None
-
-
-def _build_style_emphasis_line(prefs: SagePreferences) -> Optional[str]:
-    styles = [s for s in prefs.preferred_styles if s != "agnostic"]
-    if not styles:
-        return None
-
-    # Hybrid B/C: noticeable but not overwhelming
-    if "power" in styles and "offshore" in styles:
-        return (
-            "I'll lean a bit harder into power moves and offshore structure when either path is reasonable."
-        )
-    if "power" in styles:
-        return "I'll favor power-style approaches when there are multiple good options."
-    if "finesse" in styles:
-        return "I'll highlight finesse options any time they make sense for the conditions."
-    if "grass" in styles:
-        return "I'll call out grass edges and vegetation lines whenever they naturally fit the pattern."
-    if "bank" in styles or "dock" in styles:
-        return "I'll give extra attention to bank lines and dock targets when the pattern supports it."
-    if "offshore" in styles:
-        return "I'll nudge you toward offshore structure and breaks when the pattern allows for it."
-
-    return None
-
-
-def _build_confidence_baits_line(prefs: SagePreferences) -> Optional[str]:
-    if not prefs.confidence_baits:
-        return None
-    baits = [b.strip() for b in prefs.confidence_baits if b.strip()]
-    if not baits:
-        return None
-    if len(baits) == 1:
-        return f"If the bite feels off, we can lean on your confidence bait: {baits[0]}."
-    if len(baits) == 2:
-        return (
-            f"If things get weird, we can fall back on your confidence baits like {baits[0]} and {baits[1]}."
-        )
-    # 3+ baits
-    head = ", ".join(baits[:2])
-    tail = baits[2]
-    return (
-        f"If conditions shift, we can rotate through your confidence baits like "
-        f"{head}, and {tail} to stay grounded."
-    )
-
-
-def _build_banned_techniques_line(prefs: SagePreferences) -> Optional[str]:
-    if not prefs.banned_techniques:
-        return None
-    banned = [b.strip() for b in prefs.banned_techniques if b.strip()]
-    if not banned:
-        return None
-
-    # Hybrid B/C: clearly state avoidance, but still advisory-only
-    if len(banned) == 1:
-        return f"I'll avoid pushing {banned[0]} as a primary suggestion."
-    if len(banned) == 2:
-        return f"I'll steer clear of leaning on {banned[0]} and {banned[1]} unless there's no better option."
-    head = ", ".join(banned[:2])
-    tail = banned[2]
-    return (
-        f"I'll de-emphasize techniques like {head}, and {tail} so the plan stays aligned with what you actually enjoy fishing."
-    )
-
-
-def _apply_personalization_lines(
-    base_lines: list[str],
-    prefs: SagePreferences,
-) -> list[str]:
-    """
-    Hybrid B/C intensity:
-    - Always preserves the core pattern/context lines.
-    - Adds 1–4 short lines describing how SAGE will talk,
-      with noticeable but not overwhelming emphasis.
-    """
-    extra: list[str] = []
-
-    exp_line = _build_experience_line(prefs)
-    if exp_line:
-        extra.append(exp_line)
-
-    coach_line = _build_coaching_line(prefs)
-    if coach_line:
-        extra.append(coach_line)
-
-    style_line = _build_style_emphasis_line(prefs)
-    if style_line:
-        extra.append(style_line)
-
-    conf_line = _build_confidence_baits_line(prefs)
-    if conf_line:
-        extra.append(conf_line)
-
-    banned_line = _build_banned_techniques_line(prefs)
-    if banned_line:
-        extra.append(banned_line)
-
-    if not extra:
-        return base_lines
-
-    # Keep base lines together, then add a small divider + personalization flavor
-    return base_lines + ["", "Personalization:", *extra]
+# ---------- Vision Area Read helper ----------
 
 
 def _build_vision_area_read(
@@ -271,7 +120,7 @@ def _build_vision_area_read(
     based purely on existing Vision / fusion context.
 
     Text-only:
-      - Does NOT modify any pattern, depth, weather, fusion, tier, or pricing behavior.
+      - Does NOT modify any pattern, depth, weather, Vision, or tier behavior.
       - Uses coaching_style + experience_level to shape tone and detail.
     """
     if context is None:
@@ -305,7 +154,6 @@ def _build_vision_area_read(
     if isinstance(pattern_conditions, dict):
         cond_vision_signals = pattern_conditions.get("vision_signals")
         if isinstance(cond_vision_signals, dict):
-            # Only add keys that don't already exist
             for k, v in cond_vision_signals.items():
                 vision_signals.setdefault(k, v)
         cond_fusion = pattern_conditions.get("fusion")
@@ -369,12 +217,8 @@ def _build_vision_area_read(
         return None
 
     # ---- Personalization knobs ----
-    experience_level = (preferences.experience_level
-                        if preferences is not None
-                        else "agnostic")
-    coaching_style = (preferences.coaching_style
-                      if preferences is not None
-                      else "agnostic")
+    experience_level = preferences.experience_level if preferences else "agnostic"
+    coaching_style = preferences.coaching_style if preferences else "agnostic"
 
     # ---- Build neutral facts first ----
     facts_sentences: list[str] = []
@@ -462,7 +306,6 @@ def _build_vision_area_read(
         if pieces:
             weather_snippet = "Conditions look like " + ", ".join(pieces) + "."
 
-    # Build a neutral 2–4 sentence scaffold we can restyle
     # Sentence 1 – core area description
     if area_desc and fish_desc:
         facts_sentences.append(
@@ -500,7 +343,6 @@ def _build_vision_area_read(
     facts_sentences = facts_sentences[:4]
 
     # ---- Tone + detail adaptation ----
-    # We’ll lightly remap the scaffold based on coaching_style + experience_level.
     style = coaching_style or "agnostic"
     level = experience_level or "agnostic"
 
@@ -526,12 +368,11 @@ def _build_vision_area_read(
 
     def wrap_minimal(sentences: list[str]) -> list[str]:
         # Keep it to 1–2 compact lines
-        core = sentences[:2]
-        return core
+        return sentences[:2]
 
     # Apply coaching style
     styled = facts_sentences.copy()
-    if style == "calm_guide" or style == "agnostic":
+    if style in ("calm_guide", "agnostic"):
         styled = wrap_calm(styled)
     elif style == "old_school_pro":
         styled = wrap_old_school(styled)
@@ -542,51 +383,111 @@ def _build_vision_area_read(
     elif style == "minimalist":
         styled = wrap_minimal(styled)
 
-    # Experience level tweaks: adjust jargon/length lightly.
+    # Experience level tweaks
     if level == "beginner":
-        # For beginners, avoid stacking too much in one sentence
         styled = [s.replace("deal", "area").replace("rotation", "pass") for s in styled]
         if len(styled) > 3:
             styled = styled[:3]
     elif level == "advanced":
-        # Allow slightly more pattern-ish phrasing but still grounded
         styled = [s.replace("spot worth camping on", "quality-looking area to camp on") for s in styled]
 
-    # Final join
     return " ".join(styled)
 
 
-# ---------- Route (with personalization Step 2) ----------
+# ---------- Route (with personalization) ----------
+
+
+# app/api/sage.py  — REPLACE the entire /chat route with this
 
 @router.post("/chat", response_model=SageChatResponse)
 def sage_chat(payload: SageChatRequest) -> SageChatResponse:
     """
-    SAGE endpoint.
+    SAGE conversational endpoint — deterministic, personalization-aware,
+    Vision-aware, and test-stable.
+    """
 
-    Text-only behavior:
+    prefs = payload.preferences or SagePreferences()
+    context = payload.context
+
+    reply_parts: list[str] = []
+
+    # ---- 1) Vision Area Read (if present) ----
+    vision_area = _build_vision_area_read(context, prefs)
+    if vision_area:
+        reply_parts.append(vision_area)
+
+    # ---- 2) Coaching Intro ----
+    coaching_intro = _build_coaching_intro(prefs)
+    if coaching_intro:
+        reply_parts.append(coaching_intro)
+
+    # ---- 3) Greeting ----
+    if payload.user_name:
+        reply_parts.append(f"Hey {payload.user_name},")
+    else:
+        reply_parts.append("Alright, let’s get into it.")
+
+    # ---- 4) Echo the user question ----
+    reply_parts.append(f"You asked: {payload.message!r}")
+
+    # ---- 5) Personalization block ----
+    personalized = apply_personalization_lines([], prefs)
+    if personalized and len(personalized) > 0:
+        reply_parts.extend(personalized)
+
+    # ---- 6) Debug/context echo (stable contract) ----
+    if context and context.pattern:
+        p = context.pattern
+        bits = []
+        if p.phase: bits.append(f"phase={p.phase}")
+        if p.depth_zone: bits.append(f"depth_zone={p.depth_zone}")
+        if p.tier: bits.append(f"tier={p.tier}")
+        if bits:
+            reply_parts.append("Pattern context: " + ", ".join(bits))
+
+    if context and context.vision:
+        if context.vision.vision or context.vision.fusion:
+            reply_parts.append("Vision context received.")
+
+    if context and context.images:
+        reply_parts.append(
+            f"Image references provided: {len(context.images)} (future vision use)."
+        )
+
+    final_reply = "\n".join(reply_parts)
+
+    return SageChatResponse(
+        reply=final_reply,
+        context_used=context,
+        preferences_used=prefs,
+    )
+    """
+    SAGE endpoint (text-only for V1).
+
+    Behavior:
       - Uses pattern / vision context for description.
       - Uses SagePreferences to shape tone and detail.
-      - DOES NOT modify any pattern engines, depth logic, weather, fusion rules,
+      - Uses apply_personalization_lines to describe Confidence Spectrum
+        and coaching tone.
+      - DOES NOT modify any pattern engines, depth logic, weather, Vision rules,
         pricing, or tier behavior.
     """
 
     # Ensure we always have a preferences object to work with
     prefs = payload.preferences or SagePreferences()
 
-    # Very simple, deterministic reply for now.
-    # This keeps tests predictable, but now respects optional user_name
-    # and uses the in-app branding ("SAGE" only).
+    # Very simple, deterministic base greeting.
     if payload.user_name:
-        greeting = f"Hey {payload.user_name}, Catch anything yet?."
+        greeting = f"Hey {payload.user_name}, catch anything yet?"
     else:
-        greeting = "I guess that's why they don't call it Catchin'. Need any help?"
+        greeting = "I guess that's why they don't call it catchin'. Need any help?"
 
-    base_reply_lines = [
+    base_reply_lines: list[str] = [
         greeting,
         f"You asked: {payload.message!r}",
     ]
 
-    # NEW: Vision Area Read (Vision tier only, if context/fusion available)
+    # Optional Vision Area Read (Vision-tier only, if context/fusion available)
     vision_area_read = _build_vision_area_read(
         context=payload.context,
         preferences=prefs,
@@ -594,7 +495,7 @@ def sage_chat(payload: SageChatRequest) -> SageChatResponse:
     if vision_area_read:
         base_reply_lines.insert(0, vision_area_read)
 
-    # Existing context echoing / debug lines stay the same
+    # Context echo lines (lightweight debug + UX transparency)
     if payload.context and payload.context.pattern:
         p = payload.context.pattern
         summary_bits = []
@@ -615,13 +516,12 @@ def sage_chat(payload: SageChatRequest) -> SageChatResponse:
     if payload.context and payload.context.images:
         base_reply_lines.append(
             f"Image references provided: {len(payload.context.images)} "
-            "(these will be used by future vision upgrades)."
+            "(these will be used by future Vision upgrades)."
         )
 
-    # NEW: apply canonical personalization
-    base_reply_lines = apply_personalization_lines(base_reply_lines, prefs)
-
-    reply = "\n".join(base_reply_lines)
+    # Apply Step 2 personalization (experience, coaching tone, Confidence Spectrum)
+    reply_lines = apply_personalization_lines(base_reply_lines, prefs)
+    reply = "\n".join(reply_lines)
 
     return SageChatResponse(
         reply=reply,

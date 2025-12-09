@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Literal
 
 from fastapi import APIRouter
 from pydantic import BaseModel
@@ -37,6 +37,39 @@ class ApplyVisionRequest(BaseModel):
     on_water: Optional[Dict[str, Any]] = None
     fishfinder: Optional[Dict[str, Any]] = None
 
+class VisionIntelRequest(BaseModel):
+    pattern_conditions: Dict[str, Any]
+    on_water: Optional[Dict[str, Any]] = None
+    fishfinder: Optional[Dict[str, Any]] = None
+
+
+class VisionConditionsPanel(BaseModel):
+    global_line: str
+    local_line: str
+
+
+class VisionConfidenceBlock(BaseModel):
+    level: Literal["low", "medium", "high"]
+    value: float  # 0–1
+
+
+class VisionSummaryBlock(BaseModel):
+    lines: list[str]
+
+
+class VisionEnhancedBlock(BaseModel):
+    area_confidence: str
+    quality_zone: str
+    movement_logic: str
+    environmental_interpretation: str
+
+
+class VisionIntelResponse(BaseModel):
+    conditions_panel: VisionConditionsPanel
+    confidence: VisionConfidenceBlock
+    vision_summary: VisionSummaryBlock
+    vision_enhanced: VisionEnhancedBlock
+    meta: Dict[str, Any] = {}
 
 # ---------- Stub Endpoints ----------
 
@@ -103,3 +136,121 @@ def apply_vision_to_pattern(payload: ApplyVisionRequest) -> Dict[str, Any]:
     }
 
     return {"updated_conditions": conditions}
+
+
+def _infer_confidence_level(fishfinder: Dict[str, Any]) -> tuple[str, float]:
+    """Very simple, deterministic confidence mapping from arch_count."""
+    arches = fishfinder.get("arch_count")
+    if not isinstance(arches, (int, float)):
+        return "medium", 0.5
+
+    if arches >= 6:
+        return "high", 0.85
+    if arches >= 3:
+        return "medium", 0.6
+    return "low", 0.3
+
+@router.post("/intel-screen", response_model=VisionIntelResponse)
+def vision_intel_screen(payload: VisionIntelRequest) -> VisionIntelResponse:
+    """
+    Backend contract for the Vision Intelligence Screen.
+
+    - No AI calls.
+    - No pattern regeneration or tier changes.
+    - Produces calm, deterministic copy that matches the UI design.
+    """
+
+    pattern = payload.pattern_conditions or {}
+    on_water = payload.on_water or {}
+    fishfinder = payload.fishfinder or {}
+
+    # --- Conditions panel text ---
+    global_line = (
+        "Today's overall weather and seasonal cues are shaping the current pattern."
+    )
+    local_line = (
+        "Vision is interpreting this specific area from your latest surface and/or sonar inputs."
+    )
+
+    conditions_panel = VisionConditionsPanel(
+        global_line=global_line,
+        local_line=local_line,
+    )
+
+    # --- Confidence block ---
+    level, value = _infer_confidence_level(fishfinder)
+    confidence = VisionConfidenceBlock(level=level, value=value)
+
+    # --- Vision summary lines (the purple card bullets) ---
+    summary_lines: list[str] = []
+
+    depth_ft = fishfinder.get("depth_ft")
+    if isinstance(depth_ft, (int, float)):
+        summary_lines.append(
+            f"High confidence around the mid-depth break around ~{depth_ft:.0f} ft."
+        )
+    elif level == "high":
+        summary_lines.append("High confidence around the mid-depth break.")
+
+    visible_structure = on_water.get("visible_structure")
+    vegetation = on_water.get("vegetation")
+    if visible_structure or vegetation:
+        bits = []
+        if visible_structure:
+            bits.append(visible_structure)
+        if vegetation:
+            bits.append(vegetation)
+        summary_lines.append(
+            "Best quality zone is the transition edge where " + " and ".join(bits) + " meet."
+        )
+
+    if depth_ft:
+        summary_lines.append(
+            f"Target {max(depth_ft - 4, 1):.0f}–{depth_ft + 4:.0f} ft as the primary strike window."
+        )
+
+    summary_lines.append(
+        "Work the best-looking stretches thoroughly, then hop to similar structure."
+    )
+
+    vision_summary = VisionSummaryBlock(lines=summary_lines)
+
+    # --- Vision Enhanced detail sections (lower card) ---
+    area_confidence = summary_lines[0] if summary_lines else (
+        "Confidence here is moderate based on the available surface and sonar cues."
+    )
+
+    quality_zone = (
+        "Best quality zone is the transition edge where grass ends and hard bottom begins."
+    )
+
+    movement_logic = (
+        "Slide along the contour, focusing on points, subtle inside turns, and any stretch where the screen looks most alive."
+    )
+
+    environmental_interpretation = (
+        "Wind and light angle are positioning baitfish slightly off the main break, so cast across the seam rather than straight up and down it."
+    )
+
+    vision_enhanced = VisionEnhancedBlock(
+        area_confidence=area_confidence,
+        quality_zone=quality_zone,
+        movement_logic=movement_logic,
+        environmental_interpretation=environmental_interpretation,
+    )
+
+    meta = {
+        "version": "vision-intel-v1-stub",
+        "has_on_water": bool(on_water),
+        "has_fishfinder": bool(fishfinder),
+        "phase": pattern.get("phase"),
+        "tier": pattern.get("tier"),
+    }
+
+    return VisionIntelResponse(
+        conditions_panel=conditions_panel,
+        confidence=confidence,
+        vision_summary=vision_summary,
+        vision_enhanced=vision_enhanced,
+        meta=meta,
+    )
