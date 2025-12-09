@@ -1,12 +1,11 @@
 # app/api/sage.py
-
 from __future__ import annotations
 
 from typing import Any, Dict, Optional, List, Literal
 
 from fastapi import APIRouter
 from pydantic import BaseModel
-from .sage_personalization import apply_personalization_lines
+from app.api.sage_personalization import apply_personalization_lines
 
 router = APIRouter(prefix="/sage", tags=["sage"])
 
@@ -96,8 +95,8 @@ class SagePreferences(BaseModel):
 class SageChatRequest(BaseModel):
     message: str
     context: Optional[SageContext] = None
-    user_name: Optional[str] = None  # NEW – name from frontend
-    # preferences: Optional[SagePreferences] = None  # (for later wiring)
+    user_name: Optional[str] = None
+    preferences: Optional[SagePreferences] = None
 
 
 class SageChatResponse(BaseModel):
@@ -619,9 +618,13 @@ def sage_chat(payload: SageChatRequest) -> SageChatResponse:
             "(these will be used by future vision upgrades)."
         )
 
+    # NEW: apply canonical personalization
+    base_reply_lines = apply_personalization_lines(base_reply_lines, prefs)
+
     reply = "\n".join(base_reply_lines)
 
     return SageChatResponse(
         reply=reply,
         context_used=payload.context,
+        preferences_used=prefs,
     )

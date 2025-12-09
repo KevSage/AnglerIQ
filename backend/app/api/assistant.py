@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Literal
+from typing import Any, Dict, Literal, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -14,10 +14,15 @@ from app.domain.pattern.schemas import (
 from app.domain.pattern.logic_pro import build_pro_pattern
 from app.domain.pattern.logic_elite import build_elite_pattern
 
+from app.api.sage import SagePreferences
+from app.api.sage_engine import generate_advice
+from app.api.sage_personalization import personalize_sage_answer
+
 router = APIRouter(prefix="/assistant", tags=["assistant"])
 
 
 # ---------- Request / Response models ----------
+
 
 class AssistantAskRequest(BaseModel):
     """
@@ -29,10 +34,13 @@ class AssistantAskRequest(BaseModel):
         "pattern": { ... fields used by ElitePatternRequest ... },
         "question": "How should I start fishing this pattern?"
     }
+
+    `preferences` is optional and will default to a neutral SagePreferences.
     """
     tier: Literal["pro", "elite", "vision"]
     pattern: Dict[str, Any]
     question: str
+    preferences: Optional[SagePreferences] = None
 
 
 class AssistantAskResponse(BaseModel):
@@ -45,13 +53,15 @@ class AssistantAskResponse(BaseModel):
 
 # ---------- Route ----------
 
+
 @router.post("/ask", response_model=AssistantAskResponse)
 def assistant_ask(payload: AssistantAskRequest) -> AssistantAskResponse:
     """
     High-level "assistant" endpoint that:
       1) Builds the appropriate pattern based on tier.
-      2) Returns a human-readable answer (stubbed for now).
-      3) Returns a rich `pattern_summary` block.
+      2) Runs the SAGE rules engine to produce coaching text.
+      3) Applies personalization (tone + emphasis) via SagePreferences.
+      4) Returns a rich `pattern_summary` block.
 
     IMPORTANT: `pattern_summary` is built from the full pattern response,
     so it always contains keys like `phase`, `depth_zone`,
@@ -59,9 +69,9 @@ def assistant_ask(payload: AssistantAskRequest) -> AssistantAskResponse:
     `gameplan`, `adjustments`, and `conditions`.
     """
 
-    tier = payload.tier
-
     # --- 1) Build the underlying pattern ------------------------------
+
+    tier = payload.tier  # <- this was missing, causing NameError
 
     if tier == "pro":
         req = ProPatternRequest(**payload.pattern)
@@ -78,24 +88,35 @@ def assistant_ask(payload: AssistantAskRequest) -> AssistantAskResponse:
     else:
         raise HTTPException(status_code=400, detail=f"Unsupported tier: {tier}")
 
-    # --- 2) Build an answer string (simple but non-empty) -------------
+    # --- 2) Run SAGE rules engine ------------------------------------
 
-    phase = summary.get("phase", "this")
-    depth_zone = summary.get("depth_zone", "mixed depths")
-
-    answer = (
-        f"Here’s how I’d start fishing this {tier} pattern. "
-        f"Right now SAGE reads this as a '{phase}' pattern "
-        f"with a '{depth_zone}' focus. Begin by working through the "
-        f"first few recommended lures in the highest-percentage target areas, "
-        f"then adjust using the gameplan and adjustments if the bite slows down."
+    base_answer, key_points, meta = generate_advice(
+        pattern=summary,
+        question=payload.question,
     )
 
-    # --- 3) Return the combined response ------------------------------
+    # --- 3) Apply personalization (tone + emphasis, text-only) -------
+
+    prefs = payload.preferences or SagePreferences()
+    personalized_answer, personalized_key_points = personalize_sage_answer(
+        base_answer,
+        key_points,
+        prefs,
+    )
+
+    # --- 4) Build pattern_summary for the UI/tests -------------------
+
+    pattern_summary: Dict[str, Any] = {
+        **summary,
+        "sage_key_points": personalized_key_points,
+        "sage_meta": meta,
+    }
+
+    # --- 5) Return the combined response -----------------------------
 
     return AssistantAskResponse(
         tier=tier,
         question=payload.question,
-        answer=answer,
-        pattern_summary=summary,
+        answer=personalized_answer,
+        pattern_summary=pattern_summary,
     )

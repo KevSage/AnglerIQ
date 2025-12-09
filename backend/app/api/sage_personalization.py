@@ -2,11 +2,18 @@
 
 from __future__ import annotations
 
-from typing import Any, List, Optional
+from typing import List, Tuple, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    # Type-only import to avoid runtime circular imports.
+    from app.api.sage import SagePreferences
 
 
-def _build_experience_line(prefs: Any) -> Optional[str]:
-    exp = getattr(prefs, "experience_level", "agnostic")
+# ---------- Line builders (shared) ----------
+
+
+def _build_experience_line(prefs: "SagePreferences") -> str | None:
+    exp = prefs.experience_level
     if exp == "beginner":
         return (
             "I'll keep the language simple and focus on clear, practical steps "
@@ -22,64 +29,84 @@ def _build_experience_line(prefs: Any) -> Optional[str]:
             "I'll speak more like a tournament partner—short on fluff, comfortable "
             "with depth, phase, and pattern jargon."
         )
-    # agnostic → no extra line
+    # agnostic/general → no extra line
     return None
 
 
-def _build_coaching_line(prefs: Any) -> Optional[str]:
-    style = getattr(prefs, "coaching_style", "agnostic")
+def _build_coaching_line(prefs: "SagePreferences") -> str | None:
+    style = prefs.coaching_style
     if style == "calm_guide":
-        return "I'll keep the tone steady and reassuring, walking you through the pattern one step at a time."
+        return (
+            "I'll keep the tone steady and reassuring, walking you through the "
+            "pattern one step at a time."
+        )
     if style == "old_school_pro":
         return "I'll be a bit more blunt and direct so you always know the next move."
     if style == "data_analyst":
-        return "I'll lean into the signals—conditions, structure, and trends—to explain *why* each move makes sense."
+        return (
+            "I'll lean into the signals—conditions, structure, and trends—to explain "
+            "*why* each move makes sense."
+        )
     if style == "hype_coach":
-        return "I'll keep the energy up and focus on what gives you the best shot at a confidence bite."
+        return (
+            "I'll keep the energy up and focus on what gives you the best shot at a "
+            "confidence bite."
+        )
     if style == "minimalist":
-        return "I'll keep things tight and to the point, focusing on only what actually matters."
+        return (
+            "I'll keep things tight and to the point, focusing on only what actually "
+            "matters."
+        )
     # agnostic → no extra line
     return None
 
 
-def _build_style_emphasis_line(prefs: Any) -> Optional[str]:
-    styles: List[str] = [
-        s for s in getattr(prefs, "preferred_styles", []) if s != "agnostic"
-    ]
+def _build_style_emphasis_line(prefs: "SagePreferences") -> str | None:
+    styles = [s for s in prefs.preferred_styles if s != "agnostic"]
     if not styles:
         return None
 
     # Hybrid B/C: noticeable but not overwhelming
     if "power" in styles and "offshore" in styles:
         return (
-            "I'll lean a bit harder into power moves and offshore structure when either path is reasonable."
+            "I'll lean a bit harder into power moves and offshore structure when "
+            "either path is reasonable."
         )
     if "power" in styles:
         return "I'll favor power-style approaches when there are multiple good options."
     if "finesse" in styles:
         return "I'll highlight finesse options any time they make sense for the conditions."
     if "grass" in styles:
-        return "I'll call out grass edges and vegetation lines whenever they naturally fit the pattern."
+        return (
+            "I'll call out grass edges and vegetation lines whenever they naturally "
+            "fit the pattern."
+        )
     if "bank" in styles or "dock" in styles:
-        return "I'll give extra attention to bank lines and dock targets when the pattern supports it."
+        return (
+            "I'll give extra attention to bank lines and dock targets when the "
+            "pattern supports it."
+        )
     if "offshore" in styles:
-        return "I'll nudge you toward offshore structure and breaks when the pattern allows for it."
+        return (
+            "I'll nudge you toward offshore structure and breaks when the pattern "
+            "allows for it."
+        )
 
     return None
 
 
-def _build_confidence_baits_line(prefs: Any) -> Optional[str]:
-    raw = getattr(prefs, "confidence_baits", None)
-    if not raw:
+def _build_confidence_baits_line(prefs: "SagePreferences") -> str | None:
+    if not prefs.confidence_baits:
         return None
-    baits = [str(b).strip() for b in raw if str(b).strip()]
+    baits = [b.strip() for b in prefs.confidence_baits if b.strip()]
     if not baits:
         return None
     if len(baits) == 1:
         return f"If the bite feels off, we can lean on your confidence bait: {baits[0]}."
     if len(baits) == 2:
         return (
-            f"If things get weird, we can fall back on your confidence baits like {baits[0]} and {baits[1]}."
+            f"If things get weird, we can fall back on your confidence baits like "
+            f"{baits[0]} and {baits[1]}."
         )
     # 3+ baits
     head = ", ".join(baits[:2])
@@ -90,11 +117,10 @@ def _build_confidence_baits_line(prefs: Any) -> Optional[str]:
     )
 
 
-def _build_banned_techniques_line(prefs: Any) -> Optional[str]:
-    raw = getattr(prefs, "banned_techniques", None)
-    if not raw:
+def _build_banned_techniques_line(prefs: "SagePreferences") -> str | None:
+    if not prefs.banned_techniques:
         return None
-    banned = [str(b).strip() for b in raw if str(b).strip()]
+    banned = [b.strip() for b in prefs.banned_techniques if b.strip()]
     if not banned:
         return None
 
@@ -102,25 +128,32 @@ def _build_banned_techniques_line(prefs: Any) -> Optional[str]:
     if len(banned) == 1:
         return f"I'll avoid pushing {banned[0]} as a primary suggestion."
     if len(banned) == 2:
-        return f"I'll steer clear of leaning on {banned[0]} and {banned[1]} unless there's no better option."
+        return (
+            f"I'll steer clear of leaning on {banned[0]} and {banned[1]} unless "
+            "there's no better option."
+        )
     head = ", ".join(banned[:2])
     tail = banned[2]
     return (
-        f"I'll de-emphasize techniques like {head}, and {tail} so the plan stays aligned with what you actually enjoy fishing."
+        f"I'll de-emphasize techniques like {head}, and {tail} so the plan stays "
+        "aligned with what you actually enjoy fishing."
     )
+
+
+# ---------- Canonical helpers ----------
 
 
 def apply_personalization_lines(
     base_lines: list[str],
-    prefs: Any,
+    prefs: "SagePreferences",
 ) -> list[str]:
     """
-    Hybrid B/C intensity:
+    Hybrid B/C intensity for line-based replies (like /sage/chat):
+
     - Always preserves the core pattern/context lines.
     - Adds 1–4 short lines describing how SAGE will talk,
       with noticeable but not overwhelming emphasis.
-
-    TEXT ONLY. This must never change engines, tiers, or pattern logic.
+    - TEXT ONLY. This must never change engines, tiers, or pattern logic.
     """
     extra: list[str] = []
 
@@ -149,3 +182,54 @@ def apply_personalization_lines(
 
     # Keep base lines together, then add a small divider + personalization flavor
     return base_lines + ["", "Personalization:", *extra]
+
+
+def personalize_sage_answer(
+    answer: str,
+    key_points: List[str],
+    prefs: "SagePreferences",
+) -> Tuple[str, List[str]]:
+    """
+    For pattern-based answers (generate_advice):
+
+    - Keep the core SAGE paragraphs.
+    - Append a short 'Personalization' section describing how SAGE
+      will bias tone and bait/technique emphasis.
+    - Key points stay the same for now (Step 1).
+    - TEXT ONLY. This must never change engines, tiers, or pattern logic.
+    """
+    extra: list[str] = []
+
+    exp_line = _build_experience_line(prefs)
+    if exp_line:
+        extra.append(exp_line)
+
+    coach_line = _build_coaching_line(prefs)
+    if coach_line:
+        extra.append(coach_line)
+
+    style_line = _build_style_emphasis_line(prefs)
+    if style_line:
+        extra.append(style_line)
+
+    conf_line = _build_confidence_baits_line(prefs)
+    if conf_line:
+        extra.append(conf_line)
+
+    banned_line = _build_banned_techniques_line(prefs)
+    if banned_line:
+        extra.append(banned_line)
+
+    if not extra:
+        return answer, key_points
+
+    personalization_paragraph = " ".join(extra)
+
+    personalized_answer = (
+        answer
+        + "\n\n"
+        + "Personalization:\n"
+        + personalization_paragraph
+    )
+
+    return personalized_answer, key_points

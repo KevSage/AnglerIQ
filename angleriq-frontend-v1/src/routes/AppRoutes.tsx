@@ -7,7 +7,7 @@ import SageChatScreen from "../screens/SageChatScreen";
 import PricingScreen from "../screens/PricingScreen";
 import OnboardingScreen from "../screens/OnboardingScreen";
 import LandingScreen from "../screens/LandingPage";
-
+import VisionDebugScreen from "../screens/VisionDebugScreen";
 export const AppRoutes = () => {
   return (
     <Routes>
@@ -23,6 +23,7 @@ export const AppRoutes = () => {
       <Route path="/onboarding" element={<OnboardingScreen />} />
 
       <Route path="/pricing" element={<PricingScreen />} />
+      <Route path="/vision-debug" element={<VisionDebugScreen />} />
     </Routes>
   );
 };

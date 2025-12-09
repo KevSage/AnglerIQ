@@ -12,3 +12,4 @@ router = APIRouter(tags=["chat"])
 @router.post("/chat", response_model=ChatResponse)
 def chat(req: ChatRequest):
     return ChatResponse(message=f"SAGE received: {req.message}")
+
