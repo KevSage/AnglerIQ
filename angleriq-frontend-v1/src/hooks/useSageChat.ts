@@ -14,6 +14,9 @@ type UseSageChatState = {
   clearChat: () => void;
 };
 
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+
 export const useSageChat = (): UseSageChatState => {
   const [messages, setMessages] = useState<SageMessage[]>([]);
   const [sending, setSending] = useState(false);
@@ -38,8 +41,7 @@ export const useSageChat = (): UseSageChatState => {
     setError(null);
 
     try {
-      // Adjust URL to match your backend/proxy setup
-      const resp = await fetch("http://localhost:8000/sage/chat", {
+      const resp = await fetch(`${API_BASE}/assistant/chat`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -48,6 +50,15 @@ export const useSageChat = (): UseSageChatState => {
       });
 
       if (!resp.ok) {
+        // Helpful debug: log the actual FastAPI error body
+        let bodyText = "";
+        try {
+          bodyText = await resp.text();
+          // eslint-disable-next-line no-console
+          console.error("SAGE /assistant/chat error body:", bodyText);
+        } catch {
+          /* ignore */
+        }
         throw new Error(`HTTP ${resp.status}`);
       }
 
@@ -62,6 +73,7 @@ export const useSageChat = (): UseSageChatState => {
 
       setMessages((prev) => [...prev, sageMsg]);
     } catch (err) {
+      // eslint-disable-next-line no-console
       console.error(err);
       setError(
         "Something went wrong while interpreting conditions. Try again."

@@ -1,57 +1,84 @@
 // src/api/sage.ts
 
-// Canonical SAGE preferences shape (frontend)
+export type Tier = "pro" | "elite" | "vision";
+
 export type SagePreferences = {
   experience_level: "general" | "beginner" | "intermediate" | "advanced";
   coaching_style:
+    | "agnostic"
     | "calm_guide"
     | "old_school_pro"
     | "data_analyst"
     | "hype_coach"
     | "minimalist";
   preferred_styles: string[];
-  high_confidence_baits: string[];
-  low_confidence_baits: string[];
+  confidence_baits?: string[] | null;
+  banned_techniques?: string[] | null;
 };
 
-// Minimal pattern context for SAGE (matches canon fields we care about)
-export type SagePatternContext = {
-  phase?: string;
-  depth_zone?: string;
-  tier?: "pro" | "elite" | "vision";
-  conditions?: Record<string, unknown>;
-};
-
-// Minimal Vision context for SAGE (analysis only for now)
-export type SageVisionContext = {
-  surface_enhanced?: Record<string, unknown>;
-  sonar_enhanced?: Record<string, unknown>;
-  vision_enhanced_analysis?: Record<string, unknown>;
-};
-
-export type SageChatRequest = {
-  message: string;
-  context?: {
-    pattern?: SagePatternContext;
-    vision?: SageVisionContext;
-  };
+export type AssistantAskRequest = {
+  tier: Tier;
+  pattern: Record<string, unknown>;
+  question: string;
   preferences?: SagePreferences;
 };
 
-export type SageChatResponse = {
-  reply: string;
+export type AssistantAskResponse = {
+  tier: Tier;
+  question: string;
+  answer: string;
+  pattern_summary: Record<string, unknown>;
 };
 
-// TEMP: stubbed implementation.
-// Later we will replace this with a real fetch to the FastAPI backend.
-export async function sendSageMessage(
-  _req: SageChatRequest
-): Promise<SageChatResponse> {
-  // Placeholder: simulate network + SAGE reply
-  await new Promise((resolve) => setTimeout(resolve, 300));
+export async function askSage(
+  payload: AssistantAskRequest
+): Promise<AssistantAskResponse> {
+  const resp = await fetch("/assistant/ask", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
 
-  return {
-    reply:
-      "SAGE reply placeholder from API layer. (Real backend wiring comes next.)",
-  };
+  if (!resp.ok) {
+    throw new Error(`SAGE /assistant/ask failed with ${resp.status}`);
+  }
+
+  return resp.json();
+}
+
+// ---- Chat ----
+
+export type AssistantChatTurn = {
+  role: "user" | "assistant";
+  content: string;
+};
+
+export type AssistantChatRequest = {
+  message: string;
+  history?: AssistantChatTurn[];
+  tier?: Tier;
+  pattern?: Record<string, unknown>;
+  preferences?: SagePreferences;
+};
+
+export type AssistantChatResponse = {
+  reply: string;
+  pattern_summary?: Record<string, unknown> | null;
+  preferences_used: SagePreferences;
+};
+
+export async function chatWithSage(
+  payload: AssistantChatRequest
+): Promise<AssistantChatResponse> {
+  const resp = await fetch("/assistant/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!resp.ok) {
+    throw new Error(`SAGE /assistant/chat failed with ${resp.status}`);
+  }
+
+  return resp.json();
 }

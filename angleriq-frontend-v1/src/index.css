@@ -1,5 +1,30 @@
 @import "tailwindcss";
 
+
+@layer utilities {
+  .aiq-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: #475569 transparent; /* thumb / track for Firefox */
+  }
+
+  .aiq-scroll::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .aiq-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .aiq-scroll::-webkit-scrollbar-thumb {
+    background: #1f2937;        /* slate-800-ish */
+    border-radius: 9999px;
+  }
+
+  .aiq-scroll::-webkit-scrollbar-thumb:hover {
+    background: #334155;        /* slate-700-ish */
+  }
+}
+
 body {
   background-color: #000000; /* roughly bg-black */
   color: #f3f4f6; /* roughly text-gray-100 */

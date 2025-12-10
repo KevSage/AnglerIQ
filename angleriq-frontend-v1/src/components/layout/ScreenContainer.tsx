@@ -20,22 +20,29 @@ const ScreenContainer = ({
       className={`min-h-screen w-full bg-black text-white px-4 pb-10 ${className}`}
     >
       {/* Global Brand Header (AIQ + tagline) */}
-      <header className="flex items-center gap-3 pt-6 pb-4">
-        {/* Circle AIQ mark */}
-        <div className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-600/70 bg-black">
-          <span className="text-[11px] font-semibold tracking-[0.18em]">
-            AIQ
-          </span>
-        </div>
+      {/* HEADER WRAPPER */}
+<header className="w-full pt-2 pb-1">
+  {/* LEFT-ALIGNED TEXT LOGO */}
+  <div className="absolute left-5 top-1 flex items-center">
+    <span className="text-[18px] font-semibold tracking-[0.18em] text-emerald-300">
+      AIQ
+    </span>
+  </div>
 
-        {/* Brand text */}
-        <div className="flex flex-col">
-          <span className="text-sm font-semibold text-white">AnglerIQ</span>
-          <span className="text-[10px] tracking-[0.18em] text-slate-400 uppercase">
-            Environmental Understanding — Elevated and Interpreted.
-          </span>
-        </div>
-      </header>
+  {/* CENTERED BRAND BLOCK */}
+  <div className="flex flex-col items-center justify-center">
+    <h1 className="text-lg font-semibold tracking-wide text-slate-100">
+      AnglerIQ
+    </h1>
+
+    <p className="mt-0.5 text-[10px] leading-tight text-slate-400 text-center">
+      Environmental Understanding
+      <br />
+      Elevated and Interpreted
+    </p>
+  </div>
+</header>
+
 
       {/* Per-screen Title / Tagline (optional) */}
       {(title || tagline) && (

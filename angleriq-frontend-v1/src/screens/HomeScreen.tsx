@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTier } from "../hooks/useTier";
 import { usePattern, type PatternResponse } from "../hooks/usePattern";
@@ -6,81 +6,34 @@ import { useOnboardingGuard } from "../hooks/useOnboardingGuard";
 import ScreenContainer from "../components/layout/ScreenContainer";
 import ConditionsPanel from "../components/home/ConditionsPanel";
 import PatternHeroCard from "../components/home/PatternHeroCard";
-const FEATURED_LURE_IMAGE =
-  "../../public/assets/images/featured-chatterbait.png"; // transparent PNG
 
 const HomeScreen: React.FC = () => {
   useOnboardingGuard();
   const navigate = useNavigate();
   const { tier } = useTier(); // "pro" | "elite" | "vision"
-  const { pattern, loading, error } = usePattern(tier);
+
+  const [hasGeneratedPattern, setHasGeneratedPattern] = useState(
+    typeof window !== "undefined" &&
+      window.localStorage.getItem("aiq_pattern_generated") === "1"
+  );
+
+  const { pattern, loading, error } = usePattern(tier, {
+    enabled: hasGeneratedPattern,
+  });
 
   const isEliteOrVision = tier === "elite" || tier === "vision";
   const isVision = tier === "vision";
 
-  if (loading) {
-    return (
-      <ScreenContainer>
-        <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4">
-          <div className="rounded-xl border border-slate-800 bg-slate-900/80 px-4 py-3 text-sm text-slate-300">
-            Interpreting today’s conditions…
-          </div>
-        </div>
-      </ScreenContainer>
-    );
-  }
-
-  if (error) {
-    return (
-      <ScreenContainer>
-        <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4">
-          <div className="space-y-3 rounded-xl border border-red-800/60 bg-slate-900/80 p-4 text-sm text-slate-200">
-            <p>
-              Something went wrong while interpreting conditions. Try again.
-            </p>
-          </div>
-        </div>
-      </ScreenContainer>
-    );
-  }
-
-  if (!pattern) {
-    return (
-      <ScreenContainer>
-        <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4">
-          <div className="rounded-xl border border-slate-800 bg-slate-900/80 px-4 py-3 text-sm text-slate-300">
-            Pattern of the Day is not available right now.
-          </div>
-        </div>
-      </ScreenContainer>
-    );
-  }
-
-  const p = pattern as PatternResponse;
-
-  const primaryTechnique = p.technique || p.pattern_of_the_moment || "—";
-  const depthZoneLabel = p.depth_zone ?? "—";
-  const conditions = p.conditions ?? {};
-  const techniqueLabel =
-    p.primary_technique || p.technique || "Environment-matched technique";
-
-  const featuredLureName =
-    p.featured_lure_name ||
-    p.pattern_of_the_moment ||
-    "Featured lure for today’s pattern";
-
-  const patternSummary =
-    p.pattern_summary ||
-    "Built from today’s conditions — not a random lure list. Adjust as the day evolves, without losing the core pattern.";
-  const supportingLures =
-    (p.supporting_lures && p.supporting_lures.length > 0
-      ? p.supporting_lures
-      : ["Mock Lure 1", "Mock Lure 2", "Mock Lure 3"]) ?? [];
-
-  const normalizedDepth = depthZoneLabel.toLowerCase();
-  const isShallowActive = normalizedDepth.includes("shallow");
-  const isMidActive = normalizedDepth.includes("mid");
-  const isDeepActive = normalizedDepth.includes("deep");
+  const handleGeneratePattern = () => {
+    // Clear old snapshot for this tier & mark generated
+    try {
+      window.localStorage.removeItem(`aiq_pattern_snapshot_${tier}`);
+      window.localStorage.setItem("aiq_pattern_generated", "1");
+    } catch {
+      // fail-safe: UI will still behave correctly in-memory
+    }
+    setHasGeneratedPattern(true);
+  };
 
   const handleViewGameplan = () => {
     if (isEliteOrVision) {
@@ -98,30 +51,147 @@ const HomeScreen: React.FC = () => {
     }
   };
 
+  const p = (pattern as PatternResponse | null) ?? null;
+
+  // Derive labels only when we actually have a pattern
+  const primaryTechnique = p?.technique || p?.pattern_of_the_moment || "—";
+  const depthZoneLabel = p?.depth_zone ?? "—";
+  const conditions = p?.conditions ?? {};
+
+  const techniqueLabel =
+    p?.primary_technique || p?.technique || "Environment-matched technique";
+
+  const featuredLureName =
+    p?.featured_lure_name ||
+    p?.pattern_of_the_moment ||
+    "Featured lure for today’s pattern";
+
+  const patternSummary =
+    p?.pattern_blurb ||
+    p?.pattern_summary ||
+    "Built from today’s conditions — not a random lure list. Adjust as the day evolves without losing the core pattern.";
+
+  const supportingLures =
+    (p?.supporting_lures && p.supporting_lures.length > 0
+      ? p.supporting_lures
+      : ["Mock Lure 1", "Mock Lure 2", "Mock Lure 3"]) ?? [];
+
   return (
     <ScreenContainer>
-      {/* 1. CONDITIONS — top of Home Screen */}
-      <ConditionsPanel conditions={conditions} />
+      {/* BEFORE PATTERN EXISTS — CTA ONLY */}
+      {!hasGeneratedPattern && (
+        <section className="mt-4 rounded-2xl border border-slate-800 bg-slate-950/80 p-4 text-sm text-slate-100">
+          <h1 className="text-base font-semibold text-slate-100">
+            Generate your Pattern of the Day
+          </h1>
+          <p className="mt-2 text-xs text-slate-400">
+            AnglerIQ will read today&apos;s environment and build a structured
+            technique for you — one clear starting point instead of a random
+            lure list. You can always adjust as the day evolves.
+          </p>
+          <button
+            type="button"
+            onClick={handleGeneratePattern}
+            disabled={loading}
+            className={[
+              "mt-4 inline-flex items-center rounded-full px-4 py-2 text-xs font-semibold",
+              loading
+                ? "border border-slate-700 bg-slate-900 text-slate-500"
+                : "border border-emerald-400 bg-emerald-400 text-black hover:bg-emerald-300",
+            ].join(" ")}
+          >
+            {loading ? "Building pattern…" : "Generate Pattern"}
+          </button>
+        </section>
+      )}
 
-      {/* MAIN GRID: TODAY'S APPROACH + DEPTH/ACTIONS vs CATCHES */}
-      {/* 2. PATTERN OF THE DAY — Technique-first hero with floating silhouette */}
-      <PatternHeroCard
-        techniqueLabel={
-          primaryTechnique !== "—"
-            ? primaryTechnique
-            : "Structured technique based on today’s environment."
-        }
-        featuredLureName={p.featured_lure_name ?? "Featured Lure"}
-        patternSummary={
-          p.pattern_blurb ??
-          "Built from today’s conditions — not a random lure list. Adjust as the day evolves without losing the core technique."
-        }
-        supportingLures={supportingLures}
-        imageSrc={FEATURED_LURE_IMAGE}
-        // For now, hard-code a brand-safe glow; later this will come
-        // directly from Dynamic Lure Color Canon (primary color token)
-        primaryGlowColor="rgba(45,212,191,0.75)" // emerald-ish medium glow
-      />
+      {/* AFTER PATTERN EXISTS AND USER HAS GENERATED IT */}
+      {hasGeneratedPattern && (
+        <>
+          {/* Loading state *after* generation */}
+          {loading && (
+            <div className="mt-6 rounded-xl border border-slate-800 bg-slate-900/80 px-4 py-3 text-sm text-slate-300">
+              Interpreting today&apos;s conditions…
+            </div>
+          )}
+
+          {/* Error state *after* generation */}
+          {!loading && error && (
+            <div className="mt-6 flex items-center justify-center px-4">
+              <div className="space-y-3 rounded-xl border border-red-800/60 bg-slate-900/80 p-4 text-sm text-slate-200">
+                <p>
+                  Something went wrong while interpreting conditions. Try again
+                  in a few minutes.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Happy path: we have a pattern */}
+          {!loading && !error && p && (
+            <>
+              {/* CONDITIONS PANEL — climate-level view */}
+              <ConditionsPanel conditions={conditions} />
+
+              {/* PATTERN HERO — technique-first Pattern of the Day */}
+              <PatternHeroCard
+                techniqueLabel={
+                  primaryTechnique !== "—"
+                    ? primaryTechnique
+                    : "Structured technique based on today’s environment."
+                }
+                featuredLureName={featuredLureName}
+                patternSummary={patternSummary}
+                supportingLures={supportingLures}
+                // If your PatternHeroCard supports glow/image props,
+                // you can add them back here as needed.
+              />
+
+              {/* ACTION BUTTONS */}
+              <div className="mt-4 flex flex-col gap-2">
+                {/* View Gameplan — Elite & Vision only */}
+                {isEliteOrVision && (
+                  <button
+                    type="button"
+                    onClick={handleViewGameplan}
+                    className="w-full rounded-xl border border-emerald-500 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-300 hover:bg-emerald-500/20"
+                  >
+                    View Gameplan
+                  </button>
+                )}
+
+                {/* Ask SAGE — all tiers */}
+                <button
+                  type="button"
+                  onClick={handleOpenSage}
+                  className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-800"
+                >
+                  Ask SAGE
+                </button>
+
+                {/* Vision Intelligence — Vision only */}
+                {isVision && (
+                  <button
+                    type="button"
+                    onClick={handleVisionIntelligence}
+                    className="w-full rounded-xl border border-indigo-500 bg-indigo-500/10 px-4 py-2 text-sm font-semibold text-indigo-300 hover:bg-indigo-500/20"
+                  >
+                    Vision Intelligence
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* Edge case: generated but no pattern & no explicit error payload */}
+          {!loading && !error && !p && (
+            <div className="mt-6 rounded-xl border border-slate-800 bg-slate-900/80 px-4 py-3 text-sm text-slate-300">
+              Pattern of the Day is not available right now. Try again in a few
+              minutes.
+            </div>
+          )}
+        </>
+      )}
     </ScreenContainer>
   );
 };

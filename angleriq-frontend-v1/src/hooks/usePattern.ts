@@ -81,151 +81,218 @@ type PatternState = {
   error: string | null;
 };
 
-// TEMP: mocked pattern builder (will be replaced by real API call)
-const buildMockPattern = (tier: Tier): PatternResponse => {
-  const base: PatternResponse = {
-    tier,
-    pattern_of_the_moment: "Mock Pattern",
-    depth_zone: "Mid-depth",
-    technique: "Mock Technique",
-    supporting_lures: ["Mock Lure 1", "Mock Lure 2", "Mock Lure 3"],
-    conditions: {
-      temp_f: 62,
-      wind_mph: 8,
-      pressure_trend: "steady",
-      cloud_cover: "partly cloudy",
-      clarity_estimate: "moderate",
-      season_phase: "pre-spawn",
-    },
-  };
-
-  if (tier === "pro") {
-    return base;
-  }
-
-  // Elite: gameplan + adjustments, no Vision
-  if (tier === "elite") {
-    return {
-      ...base,
-      gameplan: [
-        {
-          label: "Morning Strategy",
-          description: "Mock morning gameplan block.",
-        },
-        {
-          label: "Midday Strategy",
-          description: "Mock midday gameplan block.",
-        },
-        {
-          label: "Afternoon Shift",
-          description: "Mock afternoon gameplan block.",
-        },
-        {
-          label: "Evening Window",
-          description: "Mock evening gameplan block.",
-        },
-      ],
-      adjustments: [
-        {
-          trigger: "Wind increases sharply",
-          adjustment: "Switch to a heavier moving bait.",
-          why_it_works: "Keeps contact and control in higher wind.",
-        },
-        {
-          trigger: "Water clarity improves",
-          adjustment: "Downsize line and consider more natural colors.",
-          why_it_works: "More natural presentation in clear water.",
-        },
-      ],
-    };
-  }
-
-  // Vision: everything in Elite + Vision blocks
-  return {
-    ...base,
-    gameplan: [
-      {
-        label: "Morning Strategy",
-        description: "Mock morning gameplan block (Vision tier).",
-      },
-      {
-        label: "Midday Strategy",
-        description: "Mock midday gameplan block (Vision tier).",
-      },
-      {
-        label: "Afternoon Shift",
-        description: "Mock afternoon gameplan block (Vision tier).",
-      },
-      {
-        label: "Evening Window",
-        description: "Mock evening gameplan block (Vision tier).",
-      },
-    ],
-    adjustments: [
-      {
-        trigger: "Baitfish stack on mid-depth structure",
-        adjustment: "Focus on mid-depth reaction baits over the structure.",
-        why_it_works:
-          "Targets active fish positioned around the strongest returns.",
-      },
-    ],
-    vision: {
-      surface_enhanced: {
-        visible_structure: "Overhanging trees and dock posts along the bank.",
-        cover_density: "Moderate to high near mid-bank stretches.",
-        clarity_cues: "Slight surface stain with visible ripple lines.",
-        shade_lanes: "Clean shade lanes along the north-facing bank.",
-        vegetation_type: "Sparse shoreline grass with isolated patches.",
-      },
-      sonar_enhanced: {
-        depth_bands: "Most baitfish appear between 8–14 ft.",
-        bottom_hardness:
-          "Transition from medium to harder bottom off the break.",
-        bait_presence: "Consistent bait balls on the mid-depth ledge.",
-        arch_count: "Moderate arch count around bait pods.",
-        activity_level: "Medium activity with periodic flurries.",
-        should_you_keep_moving:
-          "Work through the stretch slowly, then move if no bites in 20–30 minutes.",
-      },
-      vision_enhanced_analysis: {
-        area_confidence:
-          "High confidence around the mid-depth break with visible surface cues.",
-        quality_zone:
-          "Best quality zone is the transition edge where grass ends and hard bottom begins.",
-        movement_logic:
-          "Slide along the contour, focusing on points and subtle inside turns.",
-        environmental_interpretation:
-          "Wind and light angle are positioning baitfish slightly off the main break.",
-      },
-      vision_enhanced_approach: {
-        updated_technique_focus:
-          "Prioritize mid-depth reaction baits that track the break cleanly.",
-        updated_depth_expectation:
-          "Target 8–14 ft as the primary strike window.",
-        updated_movement_strategy:
-          "Work the best-looking stretches thoroughly, then hop to similar structure.",
-        why_vision_adjusted_the_approach:
-          "Vision confirmed consistent bait and hard-bottom transitions at mid-depth.",
-      },
-    },
-  };
+type UsePatternOptions = {
+  /**
+   * If false, the hook stays idle (no request).
+   * Default: true (backward compatible).
+   */
+  enabled?: boolean;
 };
 
-export const usePattern = (tier: Tier): PatternState => {
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+
+// Small helper to keep keys consistent
+const patternCacheKey = (tier: Tier) => `aiq_pattern_snapshot_${tier}`;
+
+// -----------------------------------------------------------------------------
+// Real pattern loader with:
+// - optional gating (enabled)
+// - localStorage snapshot (persisted Pattern of the Day)
+// -----------------------------------------------------------------------------
+
+export const usePattern = (
+  tier: Tier,
+  { enabled = true }: UsePatternOptions = {}
+): PatternState => {
   const [state, setState] = useState<PatternState>({
     pattern: null,
-    loading: true,
+    loading: enabled,
     error: null,
   });
 
   useEffect(() => {
-    // Later: replace with real API call to backend pattern endpoint.
-    setState({
-      pattern: buildMockPattern(tier),
-      loading: false,
-      error: null,
-    });
-  }, [tier]);
+    let cancelled = false;
+
+    // If not enabled, sit idle with no pattern and no loading spinner.
+    if (!enabled) {
+      setState({
+        pattern: null,
+        loading: false,
+        error: null,
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    async function loadPattern() {
+      setState((prev) => ({ ...prev, loading: true, error: null }));
+
+      // 1) Try to hydrate from localStorage first
+      const cacheKey = patternCacheKey(tier);
+      const cached = typeof window !== "undefined"
+        ? window.localStorage.getItem(cacheKey)
+        : null;
+
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached) as PatternResponse;
+          if (!cancelled) {
+            setState({
+              pattern: parsed,
+              loading: false,
+              error: null,
+            });
+            return; // ✅ Short-circuit: use cached pattern, no network hit.
+          }
+        } catch {
+          // Bad cache → ignore and fall through to API
+        }
+      }
+
+      // 2) No cache (or invalid) → hit backend
+      try {
+        // Map tier → backend endpoint
+        const endpoint =
+          tier === "pro"
+            ? "/pattern/pro"
+            : tier === "elite"
+            ? "/pattern/elite"
+            : "/pattern/vision-tier"; // Vision-specific endpoint
+
+        // Minimal canonical payload; backend infers the rest.
+        // (We can later wire real location/time-of-day from Control Center or device.)
+        const storedLocation =
+          localStorage.getItem("aiq_last_location") || "Atlanta, GA";
+
+        const payload: Record<string, any> =
+          tier === "pro"
+            ? { location_name: storedLocation }
+            : {
+                location_name: storedLocation,
+                time_of_day: "day",
+                pressure_trend: "stable",
+                water_level_trend: "stable",
+                tournament_mode: false,
+              };
+
+        const resp = await fetch(`${API_BASE}${endpoint}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        });
+
+        if (!resp.ok) {
+          const text = await resp.text();
+          if (!cancelled) {
+            setState({
+              pattern: null,
+              loading: false,
+              error:
+                text ||
+                `Pattern request failed with status ${resp.status.toString()}`,
+            });
+          }
+          return;
+        }
+
+        const raw: any = await resp.json();
+        if (cancelled) return;
+
+        const conditions = raw.conditions || {};
+
+        const mapped: PatternResponse = {
+          tier,
+          pattern_of_the_moment:
+            raw.pattern_of_the_moment ??
+            raw.technique ??
+            raw.phase ??
+            "Pattern of the Day",
+          depth_zone:
+            raw.depth_zone ??
+            conditions.depth_zone ??
+            conditions.vision_depth_zone ??
+            "mixed_depths",
+          technique: raw.technique ?? raw.pattern_of_the_moment ?? "Technique",
+          pattern_blurb: raw.pattern_blurb ?? raw.pattern_summary ?? undefined,
+          supporting_lures:
+            raw.supporting_lures ?? raw.recommended_lures ?? [],
+
+          gameplan: raw.gameplan ?? undefined,
+          adjustments: raw.adjustments ?? undefined,
+
+          conditions: {
+            temp_f:
+              conditions.temp_f ??
+              conditions.air_temp_f ??
+              undefined,
+            wind_mph:
+              conditions.wind_speed ??
+              conditions.wind_mph ??
+              undefined,
+            pressure_trend: conditions.pressure_trend,
+            cloud_cover:
+              conditions.sky_condition ??
+              conditions.cloud_cover ??
+              undefined,
+            clarity_estimate:
+              conditions.clarity ??
+              conditions.clarity_estimate ??
+              undefined,
+            season_phase:
+              raw.phase ??
+              conditions.phase ??
+              undefined,
+          },
+
+          primary_technique:
+            raw.primary_technique ??
+            raw.technique ??
+            null,
+          featured_lure_name: raw.featured_lure_name ?? null,
+          featured_lure_family: raw.featured_lure_family ?? null,
+          pattern_summary: raw.pattern_summary ?? null,
+
+          // Vision blocks: only present if backend sends them.
+          vision: raw.vision ?? undefined,
+        };
+
+        // Cache snapshot for this tier
+        if (typeof window !== "undefined") {
+          try {
+            window.localStorage.setItem(cacheKey, JSON.stringify(mapped));
+            window.localStorage.setItem("aiq_pattern_generated", "1");
+          } catch {
+            // ignore storage errors
+          }
+        }
+
+        setState({
+          pattern: mapped,
+          loading: false,
+          error: null,
+        });
+      } catch (err: any) {
+        if (cancelled) return;
+        setState({
+          pattern: null,
+          loading: false,
+          error:
+            err?.message ??
+            "Unexpected error while loading Pattern of the Day.",
+        });
+      }
+    }
+
+    void loadPattern();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [tier, enabled]);
 
   return state;
 };
