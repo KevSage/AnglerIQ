@@ -1,10 +1,15 @@
 // src/screens/VisionIntelligenceScreen.tsx
 
-import { useState } from "react";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  type ReactElement,
+} from "react";
 import { Navigate } from "react-router-dom";
 import ScreenContainer from "../components/layout/ScreenContainer";
 import { useTier } from "../hooks/useTier";
-import { usePattern } from "../hooks/usePattern";
+import { usePattern, type PatternResponse } from "../hooks/usePattern";
 
 import VisionSummaryStrip from "../components/vision/VisionSummaryStrip";
 import SurfaceEnhancedBlock from "../components/vision/SurfaceEnhancedBlock";
@@ -13,14 +18,93 @@ import VisionFusionPanel from "../components/vision/VisionFusionPanel";
 
 type VisionMode = "surface" | "sonar" | "vision";
 
-const VisionIntelligenceScreen = () => {
+const VisionIntelligenceScreen: React.FC = (): ReactElement => {
   const { tier } = useTier();
   const { pattern, loading, error } = usePattern(tier);
-  const [mode, setMode] = useState<VisionMode>("vision");
 
-  // Defensive tier gating — Vision tier only
+  // All hooks live up here so the order never changes
+  const [mode, setMode] = useState<VisionMode>("vision");
+  const [hasPatternChanged, setHasPatternChanged] = useState(false);
+  const prevKeyRef = useRef<string | null>(null);
+
+  const p = pattern as PatternResponse | null;
+
+  const patternTitle =
+    p?.primary_technique ||
+    p?.technique ||
+    p?.pattern_of_the_moment ||
+    "—";
+
+  const depthZoneLabel = p?.depth_zone || "—";
+
+  // Track whether pattern changed (e.g., Vision adjustments)
+  useEffect(() => {
+    const key = `${patternTitle}|${depthZoneLabel}`;
+
+    if (prevKeyRef.current && prevKeyRef.current !== key) {
+      setHasPatternChanged(true);
+      const timer = setTimeout(() => setHasPatternChanged(false), 4000);
+      return () => clearTimeout(timer);
+    }
+
+    prevKeyRef.current = key;
+  }, [patternTitle, depthZoneLabel]);
+
+  // Vision blocks (guarded via optional chaining)
+  const surface = p?.vision?.surface_enhanced;
+  const sonar = p?.vision?.sonar_enhanced;
+  const analysis = p?.vision?.vision_enhanced_analysis;
+  const approach = p?.vision?.vision_enhanced_approach;
+
+  const hasSurface = !!surface;
+  const hasSonar = !!sonar;
+  const hasVisionCore = !!(analysis || approach);
+  const hasAnyVision = hasSurface || hasSonar || hasVisionCore;
+  const hasLocalVision = !!p && hasAnyVision;
+
+  const globalLine =
+    "Global: Today’s overall weather and seasonal cues are shaping the current pattern.";
+  const localLine = hasLocalVision
+    ? "Local: Vision is interpreting this specific area from your latest surface and/or sonar inputs."
+    : "Local: No images yet. Upload a surface photo or sonar screenshot to see how this exact spot behaves.";
+
+  const safeMode: VisionMode = mode;
+
+  const tabBase =
+    "flex-1 px-3 py-1.5 text-[10px] font-medium rounded-full transition-colors";
+
+  const tabClasses = (target: VisionMode) => {
+    const active = safeMode === target;
+
+    if (!active) {
+      return [tabBase, "text-gray-300 hover:text-white"].join(" ");
+    }
+
+    if (target === "surface") {
+      return [tabBase, "bg-emerald-500/90 text-black"].join(" ");
+    }
+    if (target === "sonar") {
+      return [tabBase, "bg-sky-500/90 text-black"].join(" ");
+    }
+    // vision
+    return [tabBase, "bg-indigo-500/90 text-black"].join(" ");
+  };
+
+  // ---------- Conditional returns (after ALL hooks) ----------
+
+  // Vision tier gating
   if (tier !== "vision") {
-    return <Navigate to="/" replace />;
+    return (
+      <ScreenContainer
+        title="Vision Intelligence"
+        tagline="Environmental Understanding — Elevated."
+      >
+        <div className="mt-6 rounded-2xl border border-gray-700/70 bg-[#050608] px-4 py-4 text-xs text-gray-200">
+          Vision Intelligence is available only for the Vision tier. Switch
+          tiers in Control Center to unlock Vision Enhanced analysis.
+        </div>
+      </ScreenContainer>
+    );
   }
 
   if (loading) {
@@ -38,7 +122,7 @@ const VisionIntelligenceScreen = () => {
     );
   }
 
-  if (error || !pattern) {
+  if (error || !p) {
     return (
       <ScreenContainer
         title="Vision Intelligence"
@@ -53,94 +137,7 @@ const VisionIntelligenceScreen = () => {
     );
   }
 
-  const surface = pattern.vision?.surface_enhanced;
-  const sonar = pattern.vision?.sonar_enhanced;
-  const analysis = pattern.vision?.vision_enhanced_analysis;
-  const approach = pattern.vision?.vision_enhanced_approach;
-
-  const hasSurface = !!surface;
-  const hasSonar = !!sonar;
-  const hasVisionCore = !!(analysis || approach);
-  const hasAnyVision = hasSurface || hasSonar || hasVisionCore;
-
-  // Hybrid global + local panel copy (no numbers, no contradictions)
-  const hasLocalVision = hasAnyVision;
-  const localLine = hasLocalVision
-    ? "Local: Vision is interpreting this specific area from your latest surface and/or sonar inputs."
-    : "Local: No images yet. Upload a surface photo or sonar screenshot to see how this exact spot behaves.";
-
-  if (!hasAnyVision) {
-    return (
-      <ScreenContainer
-        title="Vision Intelligence"
-        tagline="Environmental Understanding — Elevated."
-      >
-        {/* Hybrid conditions + environment panel */}
-        <section className="mt-4 rounded-2xl border border-gray-700/70 bg-[#050608] px-4 py-3">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-300">
-            Conditions + Environment
-          </p>
-          <p className="mt-1 text-xs text-gray-200">
-            Global: Today&apos;s overall weather and seasonal cues are shaping
-            the current pattern.
-          </p>
-          <p className="mt-1 text-xs text-gray-400">{localLine}</p>
-        </section>
-
-        <div className="mt-8 rounded-2xl border border-gray-700/70 bg-[#101010] px-4 py-6 text-center">
-          <p className="text-xs text-gray-200">
-            No sonar or surface images yet.
-          </p>
-          <p className="mt-2 text-[11px] text-gray-400">
-            Upload a photo or sonar screenshot to activate Vision Enhanced
-            interpretation.
-          </p>
-        </div>
-      </ScreenContainer>
-    );
-  }
-
-  // Auto-correct mode if selected one has no data
-  const safeMode: VisionMode = (() => {
-    if (mode === "surface" && !hasSurface) {
-      if (hasSonar) return "sonar";
-      if (hasVisionCore) return "vision";
-    }
-    if (mode === "sonar" && !hasSonar) {
-      if (hasSurface) return "surface";
-      if (hasVisionCore) return "vision";
-    }
-    if (mode === "vision" && !hasVisionCore) {
-      if (hasSurface) return "surface";
-      if (hasSonar) return "sonar";
-    }
-    return mode;
-  })();
-
-  const tabBase =
-    "flex-1 px-3 py-1.5 text-[10px] font-medium rounded-full transition-colors";
-
-  const tabClasses = (target: VisionMode, enabled: boolean) => {
-    const active = safeMode === target;
-
-    if (!enabled) {
-      return [tabBase, "cursor-not-allowed opacity-40 text-gray-500"].join(" ");
-    }
-
-    if (!active) {
-      return [tabBase, "text-gray-300 hover:text-white"].join(" ");
-    }
-
-    // Active color by mode
-    if (target === "surface") {
-      return [tabBase, "bg-emerald-500/90 text-black"].join(" ");
-    }
-    if (target === "sonar") {
-      return [tabBase, "bg-sky-500/90 text-black"].join(" ");
-    }
-    // vision
-    return [tabBase, "bg-indigo-500/90 text-black"].join(" ");
-  };
+  // ---------- Main render ----------
 
   return (
     <ScreenContainer
@@ -148,15 +145,42 @@ const VisionIntelligenceScreen = () => {
       tagline="Environmental Understanding — Elevated."
     >
       {/* Hybrid conditions + environment panel */}
-      <section className="mb-4 mt-1 rounded-2xl border border-gray-700/70 bg-[#050608] px-4 py-3">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-300">
+      <section className="mb-3 mt-1 rounded-2xl border border-gray-700/70 bg-[#050608] px-4 py-3">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-300">
           Conditions + Environment
         </p>
-        <p className="mt-1 text-xs text-gray-200">
-          Global: Today&apos;s overall weather and seasonal cues are shaping the
-          current pattern.
-        </p>
+        <p className="mt-1 text-xs text-gray-400">{globalLine}</p>
         <p className="mt-1 text-xs text-gray-400">{localLine}</p>
+      </section>
+
+      {/* Pattern Snapshot strip */}
+      <section className="mb-3 rounded-2xl border border-gray-700/70 bg-[#050608] px-4 py-3 text-[11px] text-gray-200">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-300">
+                Pattern Snapshot
+              </p>
+              {hasPatternChanged && (
+                <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[9px] font-semibold text-emerald-300">
+                  Updated from Vision
+                </span>
+              )}
+            </div>
+            <p className="mt-1 text-[12px] text-gray-100">{patternTitle}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+              Depth Zone
+            </p>
+            <p className="mt-1 text-[12px] text-gray-100">{depthZoneLabel}</p>
+          </div>
+        </div>
+
+        <p className="mt-2 text-[10px] text-gray-400">
+          Vision interprets this exact area in the context of today&apos;s
+          pattern, not as a separate guess.
+        </p>
       </section>
 
       <div className="vision-intel-root">
@@ -165,32 +189,29 @@ const VisionIntelligenceScreen = () => {
           <div className="flex items-center gap-1">
             <button
               type="button"
-              disabled={!hasSurface}
-              className={tabClasses("surface", hasSurface)}
-              onClick={() => hasSurface && setMode("surface")}
+              className={tabClasses("surface")}
+              onClick={() => setMode("surface")}
             >
               Surface Enhanced
             </button>
             <button
               type="button"
-              disabled={!hasSonar}
-              className={tabClasses("sonar", hasSonar)}
-              onClick={() => hasSonar && setMode("sonar")}
+              className={tabClasses("sonar")}
+              onClick={() => setMode("sonar")}
             >
               Subsurface Enhanced
             </button>
             <button
               type="button"
-              disabled={!hasVisionCore}
-              className={tabClasses("vision", hasVisionCore)}
-              onClick={() => hasVisionCore && setMode("vision")}
+              className={tabClasses("vision")}
+              onClick={() => setMode("vision")}
             >
               Vision Enhanced
             </button>
           </div>
         </div>
 
-        {/* Summary strip (works for all modes) */}
+        {/* Summary strip */}
         <VisionSummaryStrip
           mode={safeMode}
           surface={surface}
@@ -201,20 +222,49 @@ const VisionIntelligenceScreen = () => {
 
         {/* Mode-specific content */}
         <div className="mt-2 space-y-5">
-          {safeMode === "surface" && surface && (
-            <SurfaceEnhancedBlock surface={surface} />
+          {safeMode === "surface" && (
+            <>
+              {surface ? (
+                <SurfaceEnhancedBlock surface={surface} />
+              ) : (
+                <div className="rounded-2xl border border-emerald-500/40 bg-[#050608] px-4 py-3 text-xs text-gray-300">
+                  No surface photos yet. Upload a bank, boat, or shoreline
+                  photo to see how this exact stretch behaves.
+                </div>
+              )}
+            </>
           )}
 
-          {safeMode === "sonar" && sonar && (
-            <SonarEnhancedBlock sonar={sonar} />
+          {safeMode === "sonar" && (
+            <>
+              {sonar ? (
+                <SonarEnhancedBlock sonar={sonar} />
+              ) : (
+                <div className="rounded-2xl border border-sky-500/40 bg-[#050608] px-4 py-3 text-xs text-gray-300">
+                  No sonar screenshots yet. Upload a fishfinder screenshot to
+                  see how bait, arches, and bottom transitions line up with your
+                  pattern.
+                </div>
+              )}
+            </>
           )}
 
           {safeMode === "vision" && (
-            <VisionFusionPanel analysis={analysis} approach={approach} />
+            <>
+              {analysis || approach ? (
+                <VisionFusionPanel analysis={analysis} approach={approach} />
+              ) : (
+                <div className="rounded-2xl border border-indigo-500/40 bg-[#050608] px-4 py-3 text-xs text-gray-300">
+                  Vision hasn&apos;t interpreted this area yet. Upload a surface
+                  photo and/or sonar screenshot and refresh to see a Vision
+                  Enhanced view that ties directly back to your pattern.
+                </div>
+              )}
+            </>
           )}
         </div>
 
-        {/* Upload actions per tab (V1: simple, non-intrusive stubs) */}
+        {/* Upload actions (stubs) */}
         <div className="mt-5 space-y-2 text-center">
           {safeMode === "surface" && (
             <button

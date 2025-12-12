@@ -61,12 +61,15 @@ export type PatternResponse = {
     cloud_cover?: string;
     clarity_estimate?: string;
     season_phase?: string;
+    // optional extra fields from backend are fine; TS will ignore them
+    [key: string]: unknown;
   };
   // 🔹 NEW FIELDS (match backend)
   primary_technique?: string | null;
   featured_lure_name?: string | null;
   featured_lure_family?: string | null;
   pattern_summary?: string | null;
+  phase?: string | null;
   vision?: {
     surface_enhanced?: SurfaceBlock;
     sonar_enhanced?: SonarBlock;
@@ -82,103 +85,84 @@ type PatternState = {
 };
 
 type UsePatternOptions = {
-  /**
-   * If false, the hook stays idle (no request).
-   * Default: true (backward compatible).
-   */
   enabled?: boolean;
 };
 
-const API_BASE =
-  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
-
-// Small helper to keep keys consistent
-const patternCacheKey = (tier: Tier) => `aiq_pattern_snapshot_${tier}`;
-
 // -----------------------------------------------------------------------------
-// Real pattern loader with:
-// - optional gating (enabled)
-// - localStorage snapshot (persisted Pattern of the Day)
+// Real pattern loader with POST for all tiers (incl. Vision)
 // -----------------------------------------------------------------------------
 
 export const usePattern = (
   tier: Tier,
-  { enabled = true }: UsePatternOptions = {}
+  options?: UsePatternOptions
 ): PatternState => {
+  const { enabled = true } = options ?? {};
+
   const [state, setState] = useState<PatternState>({
     pattern: null,
     loading: enabled,
     error: null,
   });
 
+  const API_BASE =
+    import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+
   useEffect(() => {
     let cancelled = false;
 
-    // If not enabled, sit idle with no pattern and no loading spinner.
     if (!enabled) {
+      // Pattern generation not requested yet (pre "Generate Pattern" tap)
       setState({
         pattern: null,
         loading: false,
         error: null,
       });
-      return () => {
-        cancelled = true;
-      };
+      return;
     }
 
     async function loadPattern() {
       setState((prev) => ({ ...prev, loading: true, error: null }));
 
-      // 1) Try to hydrate from localStorage first
-      const cacheKey = patternCacheKey(tier);
-      const cached = typeof window !== "undefined"
-        ? window.localStorage.getItem(cacheKey)
-        : null;
-
-      if (cached) {
-        try {
-          const parsed = JSON.parse(cached) as PatternResponse;
-          if (!cancelled) {
-            setState({
-              pattern: parsed,
-              loading: false,
-              error: null,
-            });
-            return; // ✅ Short-circuit: use cached pattern, no network hit.
-          }
-        } catch {
-          // Bad cache → ignore and fall through to API
-        }
-      }
-
-      // 2) No cache (or invalid) → hit backend
       try {
         // Map tier → backend endpoint
-        const endpoint =
-          tier === "pro"
-            ? "/pattern/pro"
-            : tier === "elite"
-            ? "/pattern/elite"
-            : "/pattern/vision-tier"; // Vision-specific endpoint
+        let endpoint: string;
+        let payload: Record<string, unknown>;
 
-        // Minimal canonical payload; backend infers the rest.
-        // (We can later wire real location/time-of-day from Control Center or device.)
-        const storedLocation =
-          localStorage.getItem("aiq_last_location") || "Atlanta, GA";
+        if (tier === "pro") {
+          endpoint = "/pattern/pro";
+          payload = {
+            location_name: "Test Lake",
+          };
+        } else {
+          // Shared Elite / Vision pattern payload
+          const eliteLikePattern = {
+            location_name: "Test Lake",
+            time_of_day: "day",
+            pressure_trend: "stable",
+            water_level_trend: "stable",
+            tournament_mode: false,
+          };
 
-        const payload: Record<string, any> =
-          tier === "pro"
-            ? { location_name: storedLocation }
-            : {
-                location_name: storedLocation,
-                time_of_day: "day",
-                pressure_trend: "stable",
-                water_level_trend: "stable",
-                tournament_mode: false,
-              };
+          if (tier === "elite") {
+            endpoint = "/pattern/elite";
+            payload = eliteLikePattern;
+          } else {
+            // ✅ Vision: its own endpoint, same core pattern payload for now
+            endpoint = "/pattern/vision-tier";
+
+            // V1 behavior:
+            // Backend treats this like Elite when no Vision context is present.
+            // Later, VisionContext will be added here when we wire image upload.
+            payload = {
+              pattern: eliteLikePattern,
+              // vision is intentionally omitted or left for future wiring.
+              // The backend's VisionContext is optional in our latest version.
+            };
+          }
+        }
 
         const resp = await fetch(`${API_BASE}${endpoint}`, {
-          method: "POST",
+          method: "POST", // ✅ force POST for every tier
           headers: {
             "Content-Type": "application/json",
           },
@@ -246,29 +230,19 @@ export const usePattern = (
               raw.phase ??
               conditions.phase ??
               undefined,
+            ...conditions,
           },
 
           primary_technique:
-            raw.primary_technique ??
-            raw.technique ??
-            null,
+            raw.primary_technique ?? raw.technique ?? null,
           featured_lure_name: raw.featured_lure_name ?? null,
           featured_lure_family: raw.featured_lure_family ?? null,
           pattern_summary: raw.pattern_summary ?? null,
+          phase: raw.phase ?? null,
 
-          // Vision blocks: only present if backend sends them.
+          // Vision payload (if present)
           vision: raw.vision ?? undefined,
         };
-
-        // Cache snapshot for this tier
-        if (typeof window !== "undefined") {
-          try {
-            window.localStorage.setItem(cacheKey, JSON.stringify(mapped));
-            window.localStorage.setItem("aiq_pattern_generated", "1");
-          } catch {
-            // ignore storage errors
-          }
-        }
 
         setState({
           pattern: mapped,
@@ -292,7 +266,7 @@ export const usePattern = (
     return () => {
       cancelled = true;
     };
-  }, [tier, enabled]);
+  }, [tier, enabled, API_BASE]);
 
   return state;
 };

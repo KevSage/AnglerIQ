@@ -7,46 +7,53 @@ export type Tier = "pro" | "elite" | "vision";
 const TIER_STORAGE_KEY = "aiq_tier";
 const ONBOARD_KEY = "aiq_onboarded";
 
-const isValidTier = (value: unknown): value is Tier =>
-  value === "pro" || value === "elite" || value === "vision";
+// Utility: ensure string is one of our allowed tiers
+const normalizeTier = (value: unknown): Tier => {
+  if (!value) return "pro";
 
-const loadInitialTier = (): Tier => {
+  const lower = String(value).toLowerCase();
+
+  if (lower === "elite") return "elite";
+  if (lower === "vision") return "vision";
+  return "pro";
+};
+
+// Load tier from storage safely
+const loadStoredTier = (): Tier => {
   if (typeof window === "undefined") return "pro";
 
   try {
     const raw = window.localStorage.getItem(TIER_STORAGE_KEY);
     if (!raw) return "pro";
 
-    // First try: JSON (our normal path)
+    // Try JSON first
     try {
       const parsed = JSON.parse(raw);
-      if (isValidTier(parsed)) return parsed;
+      return normalizeTier(parsed);
     } catch {
-      // Second try: raw string (what you type in the console)
-      if (isValidTier(raw)) return raw;
+      // Fallback: plain string
+      return normalizeTier(raw);
     }
-
-    return "pro";
   } catch {
     return "pro";
   }
 };
 
 export const useTier = () => {
-  const [tier, setTier] = useState<Tier>(loadInitialTier);
+  // Load once
+  const [tier, setTier] = useState<Tier>(loadStoredTier);
 
-  // Persist changes safely
+  // Persist tier whenever it changes
   useEffect(() => {
-    if (typeof window === "undefined") return;
     try {
       window.localStorage.setItem(TIER_STORAGE_KEY, JSON.stringify(tier));
     } catch {
-      // fail silently – tier still lives in state
+      // ignore
     }
   }, [tier]);
 
+  // Onboarding flags
   const markOnboarded = () => {
-    if (typeof window === "undefined") return;
     try {
       window.localStorage.setItem(ONBOARD_KEY, "true");
     } catch {
@@ -55,7 +62,6 @@ export const useTier = () => {
   };
 
   const isOnboarded = (() => {
-    if (typeof window === "undefined") return false;
     try {
       return window.localStorage.getItem(ONBOARD_KEY) === "true";
     } catch {
@@ -65,7 +71,7 @@ export const useTier = () => {
 
   return {
     tier,
-    setTier,
+    setTier,        // ← THIS was missing due to early return
     isOnboarded,
     markOnboarded,
   };

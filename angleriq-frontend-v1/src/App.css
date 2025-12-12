@@ -1,9 +1,4 @@
-#root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
-}
+
 
 .logo {
   height: 6em;
@@ -39,4 +34,205 @@
 
 .read-the-docs {
   color: #888;
+}
+
+
+.aiq-app {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Map layer fills everything */
+.aiq-app__map-layer {
+  position: absolute;
+  inset: 0;
+}
+
+/* UI overlay sits above */
+.aiq-app__ui-layer {
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  height: 100%;
+  pointer-events: none; /* children will re-enable where needed */
+}
+
+/* Top bar */
+.aiq-top-bar {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  pointer-events: none;
+}
+
+/* Temp pill top-right-ish */
+.aiq-temp-pill {
+  position: absolute;
+  right: 0;
+  top: 0;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(10, 12, 18, 0.9);
+  color: #f9fafb;
+  font-size: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  pointer-events: auto;
+}
+
+/* Pattern chip centered under temp */
+.aiq-pattern-chip {
+  padding: 8px 14px;
+  border-radius: 14px;
+  background: rgba(10, 12, 18, 0.92);
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  color: #e5e7eb;
+  max-width: 70%;
+  text-align: center;
+  pointer-events: auto;
+}
+
+.aiq-pattern-chip__lure {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.aiq-pattern-chip__target {
+  font-size: 11px;
+  opacity: 0.75;
+  margin-top: 2px;
+}
+
+/* SAGE orb - right side center-ish */
+.aiq-sage-orb {
+  position: absolute;
+  right: 16px;
+  bottom: 96px; /* above nav */
+  width: 52px;
+  height: 52px;
+  border-radius: 999px;
+  border: none;
+  background: radial-gradient(circle at 30% 20%, #38bdf8, #0f172a);
+  color: #f9fafb;
+  font-size: 20px;
+  font-weight: 600;
+  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+}
+
+/* Recenter button - bottom-right small */
+.aiq-recenter-btn {
+  position: absolute;
+  right: 16px;
+  bottom: 160px;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.6);
+  background: rgba(15, 23, 42, 0.9);
+  color: #e5e7eb;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+}
+
+/* Bottom nav */
+.aiq-bottom-nav {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 18px;
+  padding: 8px;
+  border-radius: 18px;
+  background: rgba(15, 23, 42, 0.96);
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+  pointer-events: auto;
+  backdrop-filter: blur(16px);
+}
+
+.aiq-nav-item {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: #9ca3af;
+  font-size: 11px;
+  padding: 6px 4px;
+  border-radius: 999px;
+}
+
+.aiq-nav-item--active {
+  background: linear-gradient(to right, #22d3ee, #38bdf8);
+  color: #020617;
+  font-weight: 600;
+}
+/* -------- Bottom Sheet (Pattern, later reused for others) -------- */
+
+.aiq-bottom-sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 10px 16px 18px;
+  border-radius: 20px 20px 0 0;
+  background: rgba(15, 23, 42, 0.97);
+  border-top: 1px solid rgba(148, 163, 184, 0.5);
+  box-shadow: 0 -16px 40px rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(16px);
+  pointer-events: auto;
+}
+
+.aiq-bottom-sheet__handle {
+  width: 40px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.7);
+  margin: 0 auto 10px;
+}
+
+.aiq-bottom-sheet__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.aiq-bottom-sheet__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #e5e7eb;
+}
+
+.aiq-bottom-sheet__subtitle {
+  font-size: 11px;
+  color: #9ca3af;
+  opacity: 0.9;
+}
+
+.aiq-bottom-sheet__close {
+  border: none;
+  background: transparent;
+  color: #9ca3af;
+  font-size: 18px;
+  padding: 2px 4px;
+}
+
+.aiq-bottom-sheet__body {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #cbd5f5;
+  line-height: 1.5;
 }
