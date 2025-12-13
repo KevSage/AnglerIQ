@@ -13,7 +13,20 @@ class WeatherContext:
     wind_speed: float
     sky_condition: str
     timestamp: datetime
+    
+    def snapshot_hash(self) -> str:
+        """
+        Deterministic hash of environmental state.
+        Used for pattern stability + regeneration checks.
+        """
+        payload = {
+            "temp_f": round(self.temp_f, 1),
+            "wind_speed": round(self.wind_speed, 1),
+            "sky_condition": self.sky_condition,
+        }
 
+        encoded = json.dumps(payload, sort_keys=True).encode("utf-8")
+        return hashlib.sha256(encoded).hexdigest()
 
 @dataclass
 class VisionContext:

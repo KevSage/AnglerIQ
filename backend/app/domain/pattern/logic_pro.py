@@ -1,29 +1,23 @@
-# app/domain/pattern/logic_pro.py
-
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
-import os
-import httpx  # for WeatherAPI HTTP calls
+from app.services.weather import fetch_current_weather_by_coords
 
 from .schemas import ProPatternRequest, ProPatternResponse, LureSetup
 from .context import WeatherContext
 
 
-# -----------------------------
-# Weather integration (WeatherAPI)
-# -----------------------------
+"""
+WEATHER CONTRACT (V1 – LOCKED)
 
+- Weather is resolved ONLY via app/services/weather.py
+- logic_* modules NEVER call external APIs
+- WeatherContext is derived from a lake-centered snapshot
+- No background refresh logic lives here
+- Snapshot update cadence is handled upstream (app/session layer)
+"""
 
 def _stub_weather_context() -> WeatherContext:
-    """
-    Stubbed weather context used for:
-    - tests (e.g., location_name == "Test Lake")
-    - missing API key
-    - network/API failures
-
-    This keeps tests fully offline and deterministic.
-    """
     return WeatherContext(
         temp_f=60.0,
         wind_speed=5.0,
@@ -32,105 +26,32 @@ def _stub_weather_context() -> WeatherContext:
     )
 
 
-def _parse_weatherapi_current(payload: dict) -> WeatherContext:
-    """
-    Map WeatherAPI 'current.json' payload into our WeatherContext.
-    """
-    current = payload.get("current", {})
-    location = payload.get("location", {})
-
-    epoch = current.get("last_updated_epoch") or location.get("localtime_epoch")
-    if epoch is not None:
-        try:
-            ts = datetime.utcfromtimestamp(epoch)
-        except Exception:
-            ts = datetime.utcnow()
-    else:
-        ts = datetime.utcnow()
-
-    temp_f = float(current.get("temp_f", 60.0))
-    wind_speed = float(current.get("wind_mph", 5.0))
-
-    cond = current.get("condition") or {}
-    sky_text = str(cond.get("text", "Partly cloudy")).strip().lower()
-    sky_condition = sky_text.replace(" ", "_")
-
-    return WeatherContext(
-        temp_f=temp_f,
-        wind_speed=wind_speed,
-        sky_condition=sky_condition,
-        timestamp=ts,
-    )
-
-
-def get_weather_for_location(
-    location_name: Optional[str] = None,
-    latitude: Optional[float] = None,
-    longitude: Optional[float] = None,
-) -> WeatherContext:
-    """
-    Main weather provider for Pro/Elite and /debug/weather.
-    """
-    # 1) Test stub shortcut
-    if location_name == "Test Lake" and latitude is None and longitude is None:
-        return _stub_weather_context()
-
-    # 2) Load API key from environment
-    import logging
-
-    api_key = os.getenv("WEATHER_API_KEY")
-    if not api_key:
-        logging.warning("WEATHER_API_KEY not set; using stub WeatherContext.")
-        return _stub_weather_context()
-
-    # 3) Build query param for WeatherAPI
-    if latitude is not None and longitude is not None:
-        q = f"{latitude},{longitude}"
-    elif location_name:
-        q = location_name
-    else:
-        logging.warning("No location data provided; using stub WeatherContext.")
-        return _stub_weather_context()
-
-    # 4) Call WeatherAPI
-    try:
-        resp = httpx.get(
-            "https://api.weatherapi.com/v1/current.json",
-            params={"key": api_key, "q": q},
-            timeout=3.0,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        return _parse_weatherapi_current(data)
-    except Exception as exc:
-        logging.warning("WeatherAPI call failed (%s); falling back to stub.", exc)
-        return _stub_weather_context()
-
-
 def _get_weather_from_request(req: ProPatternRequest) -> WeatherContext:
     """
-    Hybrid helper so this works with BOTH:
-    - older schema: temp_f, wind_speed, sky_condition, month
-    - newer schema: location_name, latitude, longitude (auto-weather)
+    Weather source of truth:
+    - Prefer lake-centered coords (latitude/longitude) -> app/services/weather.py
+    - location_name is debug-only (ignored here)
+    - If coords absent, fall back to legacy fields (temp/wind/sky) for old tests only
+    - Else stub
     """
-    location_name = getattr(req, "location_name", None)
     latitude = getattr(req, "latitude", None)
     longitude = getattr(req, "longitude", None)
 
-    # 1) If we have location info, use auto-weather
-    if location_name or (latitude is not None and longitude is not None):
-        return get_weather_for_location(
-            location_name=location_name,
-            latitude=latitude,
-            longitude=longitude,
-        )
+    if latitude is not None and longitude is not None:
+        try:
+            snap = fetch_current_weather_by_coords(latitude, longitude)
+            if snap and snap.temp_f is not None and snap.wind_mph is not None:
+                sky = (snap.cloud_cover or "partly_cloudy").strip().lower().replace(" ", "_")
+                return WeatherContext(
+                    temp_f=float(snap.temp_f),
+                    wind_speed=float(snap.wind_mph),
+                    sky_condition=sky,
+                    timestamp=datetime.utcnow(),
+                )
+        except Exception:
+            pass
 
-    # 2) Fall back to explicit weather fields if present (old schema)
-    has_temp = hasattr(req, "temp_f")
-    has_wind = hasattr(req, "wind_speed")
-    has_sky = hasattr(req, "sky_condition")
-
-    if has_temp and has_wind and has_sky:
+    if hasattr(req, "temp_f") and hasattr(req, "wind_speed") and hasattr(req, "sky_condition"):
         return WeatherContext(
             temp_f=getattr(req, "temp_f"),
             wind_speed=getattr(req, "wind_speed"),
@@ -138,10 +59,7 @@ def _get_weather_from_request(req: ProPatternRequest) -> WeatherContext:
             timestamp=datetime.utcnow(),
         )
 
-    # 3) Full stub if nothing else is available
     return _stub_weather_context()
-
-
 # -----------------------------
 # Pattern logic (rules engine)
 # -----------------------------
@@ -352,7 +270,8 @@ def _build_strategy_tips(
 
     return tips
 
-
+# NOTE: Caller is responsible for snapshot cadence.
+# This function assumes weather is stable for the session.
 def build_pro_pattern(req: ProPatternRequest) -> ProPatternResponse:
     weather = _get_weather_from_request(req)
 

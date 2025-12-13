@@ -16,6 +16,23 @@ from .context import WeatherContext, VisionContext, FusedContext
 from .fusion import fuse_weather_and_vision
 from .builders import build_weather_context, build_vision_context
 
+
+
+# Elite builds ON TOP OF Pro output
+# Elite does not reclassify phase, depth, or weather
+# Elite only refines execution and adjustments
+
+"""
+WEATHER CONTRACT (V1 – LOCKED)
+
+- Weather is resolved ONLY via app/services/weather.py
+- logic_* modules NEVER call external APIs
+- WeatherContext is derived from a lake-centered snapshot
+- No background refresh logic lives here
+- Snapshot update cadence is handled upstream (app/session layer)
+"""
+
+
 # ---------------------------------------------------------------------------
 # Helper: normalize time of day
 # ---------------------------------------------------------------------------

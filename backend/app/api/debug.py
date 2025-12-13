@@ -1,41 +1,24 @@
-from datetime import datetime
-from typing import Optional
-
-from fastapi import APIRouter, Query
-
-from app.domain.pattern.logic_pro import get_weather_for_location, WeatherContext
+from fastapi import APIRouter
+from app.services.weather import fetch_current_weather_by_coords
+from app.domain.pattern.context import WeatherContext
 
 router = APIRouter(prefix="/debug", tags=["debug"])
 
-
-def _serialize_weather_context(ctx: WeatherContext) -> dict:
-    return {
-        "temp_f": ctx.temp_f,
-        "wind_speed": ctx.wind_speed,
-        "sky_condition": ctx.sky_condition,
-        "timestamp": ctx.timestamp.isoformat()
-        if isinstance(ctx.timestamp, datetime)
-        else str(ctx.timestamp),
-    }
-
-
 @router.get("/weather")
-async def debug_weather(
-    latitude: Optional[float] = Query(None),
-    longitude: Optional[float] = Query(None),
-    location_name: Optional[str] = Query(None),
-):
-    """
-    Debug endpoint to inspect the WeatherContext used by Pro/Elite.
+def debug_weather(lat: float, lon: float):
+    snap = fetch_current_weather_by_coords(lat, lon)
+    if not snap or snap.temp_f is None or snap.wind_mph is None:
+        return WeatherContext(
+            temp_f=60.0,
+            wind_speed=5.0,
+            sky_condition="partly_cloudy",
+            timestamp=datetime.utcnow(),
+        )
 
-    Notes:
-    - In tests, `location_name=Test Lake` will hit the stub and not the real API.
-    - In real usage, supplying latitude/longitude will query WeatherAPI.
-    - Location name is optional and mainly useful for manual experimentation.
-    """
-    ctx: WeatherContext = get_weather_for_location(
-        location_name=location_name,
-        latitude=latitude,
-        longitude=longitude,
+    sky = (snap.cloud_cover or "partly_cloudy").strip().lower().replace(" ", "_")
+    return WeatherContext(
+        temp_f=float(snap.temp_f),
+        wind_speed=float(snap.wind_mph),
+        sky_condition=sky,
+        timestamp=datetime.utcnow(),
     )
-    return _serialize_weather_context(ctx)

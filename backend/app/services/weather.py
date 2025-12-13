@@ -62,7 +62,17 @@ def geocode_location(location_name: str) -> Optional[GeocodeResult]:
     except Exception:
         # Be fail-soft: no crash, just no live weather
         return None
-
+    
+    
+# Weather snapshot rules:
+# - Updated on:
+#   • app reload / new session
+#   • explicit user refresh
+#   • lake change
+# - NOT updated:
+#   • continuously
+#   • on GPS drift
+#   • in background
 
 def fetch_current_weather_by_coords(lat: float, lon: float) -> WeatherSnapshot:
     """
