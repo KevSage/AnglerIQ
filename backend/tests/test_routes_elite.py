@@ -17,9 +17,6 @@ def test_pattern_elite_returns_gameplan_and_adjustments():
 
         # Elite-only context
         "time_of_day": "dawn",
-        "pressure_trend": "falling",
-        "water_level_trend": "rising",
-        "tournament_mode": True,
     }
 
     resp = client.post("/pattern/elite", json=payload)

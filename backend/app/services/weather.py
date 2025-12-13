@@ -12,7 +12,6 @@ from pydantic import BaseModel, Field
 class WeatherSnapshot(BaseModel):
     temp_f: Optional[float] = Field(default=None)
     wind_mph: Optional[float] = Field(default=None)
-    pressure_trend: Optional[str] = Field(default=None)
     cloud_cover: Optional[str] = Field(default=None)
     clarity_estimate: Optional[str] = Field(default=None)
     season_phase: Optional[str] = Field(default=None)
@@ -107,8 +106,7 @@ def fetch_current_weather_by_coords(lat: float, lon: float) -> WeatherSnapshot:
     else:
         cloud_cover = description or None
 
-    # Placeholder for pressure trend & clarity; we can upgrade later.
-    pressure_trend = "stable"
+    # Placeholder for clarity; we can upgrade later.
     clarity_estimate = None
 
     # Season phase could be derived from date + lat later; stub for now.
@@ -117,7 +115,6 @@ def fetch_current_weather_by_coords(lat: float, lon: float) -> WeatherSnapshot:
     return WeatherSnapshot(
         temp_f=temp_f,
         wind_mph=wind_mph,
-        pressure_trend=pressure_trend,
         cloud_cover=cloud_cover,
         clarity_estimate=clarity_estimate,
         season_phase=season_phase,

@@ -96,13 +96,6 @@ def _add_elite_only_layers(
 
     if req.time_of_day is not None:
         session_context["time_of_day"] = req.time_of_day
-    if req.pressure_trend is not None:
-        session_context["pressure_trend"] = req.pressure_trend
-    if req.water_level_trend is not None:
-        session_context["water_level_trend"] = req.water_level_trend
-
-    # always expose tournament_mode
-    session_context["tournament_mode"] = req.tournament_mode
 
     # Start with Pro conditions, then override tier and add session_context / normalized time
     conditions = dict(base_conditions)
@@ -135,7 +128,7 @@ def _add_elite_only_layers(
     # Simple V1 adjustments list
     adjustments: List[str] = [
         "If fish slow down, switch to more subtle presentations and slow your retrieve.",
-        "If wind or falling pressure picks up, lean into moving baits and cover more water.",
+        "If wind picks up or conditions shift, lean into moving baits and cover more water.",
     ]
 
     return ElitePatternResponse(

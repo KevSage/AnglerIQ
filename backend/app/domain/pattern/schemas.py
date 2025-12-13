@@ -1,32 +1,3 @@
-from pydantic import BaseModel
-from typing import Optional, List, Dict, Any
-
-
-class BasicPatternRequest(BaseModel):
-    temp_f: float
-    month: int
-    clarity: str
-    wind_speed: float
-
-
-class BasicPatternResponse(BaseModel):
-    phase: str
-    depth_zone: str
-    recommended_techniques: List[str]
-    targets: List[str]
-    notes: str
-
-
-class LureSetup(BaseModel):
-    lure: str
-    technique: str
-    rod: str
-    reel: str
-    line: str
-    hook_or_leader: str
-    lure_size: str
-
-
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel
 
@@ -105,9 +76,6 @@ class ElitePatternRequest(ProPatternRequest):
     Location is still provided by the app (GPS), not the user typing.
     """
     time_of_day: Optional[str] = None        # "dawn" | "midday" | ...
-    pressure_trend: Optional[str] = None    # "rising" | "falling" | "stable"
-    water_level_trend: Optional[str] = None # "rising" | "falling" | "stable"
-    tournament_mode: bool = False
 
 
 class ElitePatternResponse(BaseModel):

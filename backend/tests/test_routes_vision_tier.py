@@ -9,9 +9,6 @@ def test_pattern_vision_tier_basic_flow():
         "pattern": {
             "location_name": "Test Lake",
             "time_of_day": "dawn",
-            "pressure_trend": "falling",
-            "water_level_trend": "rising",
-            "tournament_mode": False
         },
         "vision": {
             "depth_ft": 12.5,

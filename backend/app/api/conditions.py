@@ -25,7 +25,6 @@ def get_conditions(
         return WeatherSnapshot(
             temp_f=None,
             wind_mph=None,
-            pressure_trend="stable",
             cloud_cover=None,
             clarity_estimate=None,  # Vision owns water clarity
             season_phase=None,

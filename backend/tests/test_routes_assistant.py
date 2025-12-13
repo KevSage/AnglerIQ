@@ -12,9 +12,6 @@ def test_assistant_elite_ask_returns_answer_and_summary():
         "pattern": {
             "location_name": "Test Lake",
             "time_of_day": "dawn",
-            "pressure_trend": "falling",
-            "water_level_trend": "rising",
-            "tournament_mode": True,
         },
         "question": "How should I start fishing this pattern?",
     }
@@ -97,9 +94,6 @@ def test_assistant_chat_with_elite_pattern_uses_pattern_summary():
         "pattern": {
             "location_name": "Test Lake",
             "time_of_day": "dawn",
-            "pressure_trend": "falling",
-            "water_level_trend": "rising",
-            "tournament_mode": True,
         },
         "preferences": {
             "experience_level": "advanced",

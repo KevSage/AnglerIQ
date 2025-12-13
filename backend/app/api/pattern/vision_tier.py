@@ -28,8 +28,6 @@ def pattern_vision_tier(payload: Dict[str, Any]) -> ElitePatternResponse:
         {
           "location_name": "...",
           "time_of_day": "dawn",
-          "pressure_trend": "falling",
-          "water_level_trend": "rising",
           "tournament_mode": false
         }
 
@@ -93,8 +91,6 @@ def pattern_vision_tier(payload: Dict[str, Any]) -> ElitePatternResponse:
                 elite_result.conditions["temp_f"] = snapshot.temp_f
             if snapshot.wind_mph is not None:
                 elite_result.conditions["wind_mph"] = snapshot.wind_mph
-            if snapshot.pressure_trend is not None:
-                elite_result.conditions["pressure_trend"] = snapshot.pressure_trend
             if snapshot.cloud_cover is not None:
                 elite_result.conditions["cloud_cover"] = snapshot.cloud_cover
             if snapshot.clarity_estimate is not None:
