@@ -56,3 +56,9 @@ api_router.include_router(vision_router)
 from .assistant import router as assistant_router
 
 api_router.include_router(assistant_router)
+
+# ---------- Conditions routes ----------
+
+from .conditions import router as conditions_router
+
+api_router.include_router(conditions_router)

@@ -2,9 +2,9 @@
 from . import __version__ as APP_VERSION
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
 from app.api.router import api_router
-
+from dotenv import load_dotenv
+load_dotenv()
 
 app = FastAPI(title="SAGE Backend")
 

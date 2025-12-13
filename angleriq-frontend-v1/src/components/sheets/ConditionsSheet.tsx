@@ -1,31 +1,56 @@
-type ConditionsSheetProps = {
-  temperature: string;
-  onClose: () => void;
+import { useEffect, useState } from "react";
+import type { ConditionsDTO } from "../../core/api/conditions";
+import { fetchConditionsByLakeCenter } from "../../core/api/conditions";
+export type ConditionsSheetProps = {
+  lat: number;
+  lon: number;
+  lakeName?: string;
 };
 
-export function ConditionsSheet({ temperature, onClose }: ConditionsSheetProps) {
+export function ConditionsSheet({ lat, lon, lakeName }: ConditionsSheetProps) {
+  const [data, setData] = useState<ConditionsDTO | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function run() {
+      try {
+        setLoading(true);
+        setError(null);
+        const result = await fetchConditionsByLakeCenter(lat, lon);
+        if (!cancelled) setData(result);
+      } catch (e: any) {
+        if (!cancelled) setError(e?.message ?? "Failed to load conditions");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [lat, lon]);
+
+  if (loading) return <div>Loading conditions…</div>;
+  if (error) return <div>Conditions unavailable: {error}</div>;
+  if (!data) return <div>No conditions returned.</div>;
+
   return (
-    <div className="aiq-bottom-sheet">
-      <div className="aiq-bottom-sheet__handle" />
-
-      <div className="aiq-bottom-sheet__header">
-        <div>
-          <div className="aiq-bottom-sheet__title">Conditions</div>
-          <div className="aiq-bottom-sheet__subtitle">
-            Weather only · reinforces today’s pattern logic
-          </div>
-        </div>
-        <button className="aiq-bottom-sheet__close aiq-clickable" onClick={onClose}>
-          ✕
-        </button>
+    <div style={{ display: "grid", gap: 10 }}>
+      <div style={{ opacity: 0.8 }}>
+        {lakeName ? `${lakeName} · ` : ""}
+        lake-centered conditions
       </div>
 
-      <div className="aiq-bottom-sheet__body">
-        <div><strong>Temp:</strong> {temperature}</div>
-        <div style={{ opacity: 0.75, marginTop: 8 }}>
-          This is weather-only. Water clarity remains Vision/Surface-layer driven.
-        </div>
-      </div>
+      <div>Temp: {data.temp_f ?? "—"}°F</div>
+      <div>Wind: {data.wind_mph ?? "—"} mph</div>
+      <div>Clouds: {data.cloud_cover ?? "—"}</div>
+      <div>Pressure: {data.pressure_trend ?? "—"}</div>
+
+      <div style={{ opacity: 0.7 }}>Water clarity: Vision-only</div>
     </div>
   );
 }
