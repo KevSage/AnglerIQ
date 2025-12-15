@@ -4,6 +4,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.router import api_router
 from dotenv import load_dotenv
+
+app = FastAPI()
+app.include_router(api_router)
 load_dotenv()
 
 app = FastAPI(title="SAGE Backend")

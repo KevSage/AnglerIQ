@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any, Dict, List
 
-from app.services.weather import fetch_current_weather_by_coords
+from app.services.snapshot_hash import SnapshotHashConfig, snapshot_hash
 
 from .schemas import ProPatternRequest, ProPatternResponse, LureSetup
 from .context import WeatherContext
@@ -10,12 +10,13 @@ from .context import WeatherContext
 """
 WEATHER CONTRACT (V1 – LOCKED)
 
-- Weather is resolved ONLY via app/services/weather.py
-- logic_* modules NEVER call external APIs
+- Weather is resolved ONLY via app/services/weather.py (UPSTREAM / session layer)
+- logic_* modules NEVER call external APIs (directly or indirectly)
 - WeatherContext is derived from a lake-centered snapshot
 - No background refresh logic lives here
 - Snapshot update cadence is handled upstream (app/session layer)
 """
+
 
 def _stub_weather_context() -> WeatherContext:
     return WeatherContext(
@@ -28,29 +29,39 @@ def _stub_weather_context() -> WeatherContext:
 
 def _get_weather_from_request(req: ProPatternRequest) -> WeatherContext:
     """
-    Weather source of truth:
-    - Prefer lake-centered coords (latitude/longitude) -> app/services/weather.py
-    - location_name is debug-only (ignored here)
-    - If coords absent, fall back to legacy fields (temp/wind/sky) for old tests only
-    - Else stub
+    WEATHER CONTRACT COMPLIANCE:
+    - This logic module must NOT call live weather APIs (directly or indirectly).
+    - It only consumes a lake-centered snapshot prepared upstream (session layer).
+
+    Supported request inputs (in priority order):
+    1) req.weather_snapshot (preferred): dict-like snapshot already resolved upstream
+       Expected keys: temp_f, wind_mph (or wind_speed), cloud_cover (or sky_condition)
+    2) Legacy fields: temp_f, wind_speed, sky_condition (old tests only)
+    3) Stub fallback
     """
-    latitude = getattr(req, "latitude", None)
-    longitude = getattr(req, "longitude", None)
 
-    if latitude is not None and longitude is not None:
-        try:
-            snap = fetch_current_weather_by_coords(latitude, longitude)
-            if snap and snap.temp_f is not None and snap.wind_mph is not None:
-                sky = (snap.cloud_cover or "partly_cloudy").strip().lower().replace(" ", "_")
-                return WeatherContext(
-                    temp_f=float(snap.temp_f),
-                    wind_speed=float(snap.wind_mph),
-                    sky_condition=sky,
-                    timestamp=datetime.utcnow(),
-                )
-        except Exception:
-            pass
+    # 1) Preferred: upstream-provided snapshot (session-layer resolved)
+    snap = getattr(req, "weather_snapshot", None) or getattr(req, "weather", None)
+    if isinstance(snap, dict):
+        temp_f = snap.get("temp_f")
+        wind = snap.get("wind_mph", None)
+        if wind is None:
+            wind = snap.get("wind_speed", None)
 
+        cloud = snap.get("cloud_cover", None)
+        if cloud is None:
+            cloud = snap.get("sky_condition", None)
+
+        if temp_f is not None and wind is not None:
+            sky = (cloud or "partly_cloudy").strip().lower().replace(" ", "_")
+            return WeatherContext(
+                temp_f=float(temp_f),
+                wind_speed=float(wind),
+                sky_condition=sky,
+                timestamp=datetime.utcnow(),  # runtime timestamp OK; NOT part of deterministic hash
+            )
+
+    # 2) Legacy fallback for old tests only
     if hasattr(req, "temp_f") and hasattr(req, "wind_speed") and hasattr(req, "sky_condition"):
         return WeatherContext(
             temp_f=getattr(req, "temp_f"),
@@ -59,7 +70,25 @@ def _get_weather_from_request(req: ProPatternRequest) -> WeatherContext:
             timestamp=datetime.utcnow(),
         )
 
+    # 3) Stub fallback
     return _stub_weather_context()
+
+
+def _weather_for_hash(weather: WeatherContext) -> Dict[str, Any]:
+    """
+    Minimal weather shape for deterministic hashing.
+    Mirrors app/services/weather.py snapshot keys to avoid drift.
+    """
+    cloud_cover = (weather.sky_condition or "").replace("_", " ").strip().lower() or None
+    return {
+        "temp_f": weather.temp_f,
+        "wind_mph": weather.wind_speed,
+        "cloud_cover": cloud_cover,
+        "clarity_estimate": None,
+        "season_phase": None,
+    }
+
+
 # -----------------------------
 # Pattern logic (rules engine)
 # -----------------------------
@@ -168,7 +197,7 @@ def _build_lure_setups(
             LureSetup(
                 lure=lure,
                 technique="casting",
-                rod="7'0\" medium-heavy",
+                rod='7\'0" medium-heavy',
                 reel="7.1:1 baitcaster",
                 line="15 lb fluorocarbon",
                 hook_or_leader="3/0 EWG hook",
@@ -270,10 +299,27 @@ def _build_strategy_tips(
 
     return tips
 
+
 # NOTE: Caller is responsible for snapshot cadence.
 # This function assumes weather is stable for the session.
 def build_pro_pattern(req: ProPatternRequest) -> ProPatternResponse:
     weather = _get_weather_from_request(req)
+
+    # Deterministic snapshot hash (V1)
+    # - Uses canonical rounding and stable JSON encoding
+    # - Timestamp is intentionally excluded
+    latitude = getattr(req, "latitude", None)
+    longitude = getattr(req, "longitude", None)
+
+    weather_hash_input = _weather_for_hash(weather)
+    env_snapshot_hash = snapshot_hash(
+        weather=weather_hash_input,
+        config=SnapshotHashConfig(),  # defaults: temp/wind to 0.1; lat/lon to 5 decimals
+        lat=float(latitude) if latitude is not None else None,
+        lon=float(longitude) if longitude is not None else None,
+        time_bucket=None,  # keep out unless you explicitly add normalized buckets upstream
+        water_view_id=None,  # keep out unless you have a stable identifier
+    )
 
     if hasattr(req, "month"):
         month = int(getattr(req, "month"))
@@ -332,17 +378,21 @@ def build_pro_pattern(req: ProPatternRequest) -> ProPatternResponse:
     conditions: Dict[str, Any] = {
         "tier": "pro",
         "location_name": getattr(req, "location_name", None),
-        "latitude": getattr(req, "latitude", None),
-        "longitude": getattr(req, "longitude", None),
+        "latitude": latitude,
+        "longitude": longitude,
         "temp_f": weather.temp_f,
         "wind_speed": weather.wind_speed,
         "sky_condition": weather.sky_condition,
-        "timestamp": weather.timestamp.isoformat(),
+        "timestamp": weather.timestamp.isoformat(),  # stored, but NOT used in hash
         "month": month,
         "clarity": clarity,
         "bottom_composition": bottom_composition,
         "depth_ft": depth_ft,
         "forage": forage,
+        # Deterministic snapshot identity
+        "snapshot_hash": env_snapshot_hash,
+        # Optional debug: what we hashed (still deterministic)
+        "snapshot_weather": weather_hash_input,
     }
 
     notes = (

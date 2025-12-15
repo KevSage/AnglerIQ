@@ -14,9 +14,7 @@ type UseSageChatState = {
   clearChat: () => void;
 };
 
-const API_BASE =
-  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
-
+import { API_BASE_URL } from "../lib/api";
 export const useSageChat = (): UseSageChatState => {
   const [messages, setMessages] = useState<SageMessage[]>([]);
   const [sending, setSending] = useState(false);
